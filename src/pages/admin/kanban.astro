@@ -79,17 +79,19 @@ try {
   )}
 
   <!-- Barra de filtros + estado sync -->
-  <div class="flex flex-wrap items-center gap-3 mb-4">
-    <label class="text-xs text-carbon-400">Filtrar por proyecto</label>
-    <select id="filtro-proyecto" class="input py-1.5 text-sm max-w-xs">
-      <option value="">Todos los proyectos</option>
-      <option value="__sin__">Sin proyecto</option>
-      {proyectos.map((p) => (
-        <option value={p.id}>{p.titulo}</option>
-      ))}
-    </select>
+  <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 mb-4">
+    <div class="flex items-center gap-2 flex-1 min-w-0">
+      <label class="text-xs text-carbon-400 shrink-0">Proyecto:</label>
+      <select id="filtro-proyecto" class="input py-1.5 text-sm flex-1 sm:max-w-xs">
+        <option value="">Todos</option>
+        <option value="__sin__">Sin proyecto</option>
+        {proyectos.map((p) => (
+          <option value={p.id}>{p.titulo}</option>
+        ))}
+      </select>
+    </div>
 
-    <div class="ml-auto flex items-center gap-2 text-xs text-carbon-400">
+    <div class="sm:ml-auto flex items-center gap-2 text-xs text-carbon-400">
       <span id="estado-sync" class="flex items-center gap-1.5">
         <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span id="estado-sync-texto">Sincronizado</span>
@@ -97,8 +99,11 @@ try {
     </div>
   </div>
 
-  <!-- Tablero (renderizado por JS) -->
-  <div id="tablero" class="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 min-h-[60vh] snap-x snap-mandatory lg:snap-none"></div>
+  <!-- Tabs móvil — selector columna (lg:hidden) -->
+  <div id="tabs-mobil" class="lg:hidden flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-2 mb-3 scrollbar-thin"></div>
+
+  <!-- Tablero -->
+  <div id="tablero" class="flex flex-col lg:flex-row gap-3 sm:gap-4 lg:overflow-x-auto pb-4 lg:-mx-8 lg:px-8 min-h-[60vh]"></div>
 </LayoutAdmin>
 
 <!-- ═══════ MODAL TARJETA ═══════ -->
@@ -190,6 +195,7 @@ try {
   let filtroProyecto = '';
   let arrastrando = false;   // lock para polling mientras arrastras
   let modalAbierto = false;  // lock para polling mientras editas
+  let columnaActivaMobil: string | null = null; // null = primera al render
 
   const coloresColumna: Record<string, string> = {
     carbon: 'bg-carbon-600', violeta: 'bg-violeta-500',
@@ -273,7 +279,7 @@ try {
   function renderColumna(col: Col): string {
     const ts = tarjetasVisibles(col.id);
     return `
-      <div class="columna shrink-0 w-[calc(100vw-3rem)] max-w-[320px] sm:w-[300px] rounded-xl border border-carbon-800 bg-carbon-900/50 backdrop-blur flex flex-col max-h-[calc(100vh-220px)] snap-start" data-columna-id="${col.id}">
+      <div class="columna w-full lg:w-[300px] lg:shrink-0 rounded-xl border border-carbon-800 bg-carbon-900/50 backdrop-blur flex flex-col lg:max-h-[calc(100vh-220px)]" data-columna-id="${col.id}">
         <div class="flex items-center justify-between px-4 py-3 border-b border-carbon-800">
           <div class="flex items-center gap-2 flex-1 min-w-0">
             <span class="h-2.5 w-2.5 rounded-full ${coloresColumna[col.color] ?? 'bg-carbon-600'}"></span>
@@ -298,13 +304,57 @@ try {
   }
 
   const tablero = document.getElementById('tablero')!;
+  const tabsMobil = document.getElementById('tabs-mobil')!;
+
+  function renderTabsMobil(cols: Col[]) {
+    if (!columnaActivaMobil && cols[0]) columnaActivaMobil = cols[0].id;
+    tabsMobil.innerHTML = cols.map((c) => {
+      const n = tarjetasVisibles(c.id).length;
+      const activa = c.id === columnaActivaMobil;
+      const dot = coloresColumna[c.color] ?? 'bg-carbon-600';
+      return `
+        <button type="button" data-tab-col="${c.id}"
+          class="tab-col shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
+            activa
+              ? 'bg-violeta-500/15 border-violeta-500/40 text-white'
+              : 'bg-carbon-900/60 border-carbon-800 text-carbon-300 hover:border-carbon-700'
+          }">
+          <span class="h-2 w-2 rounded-full ${dot}"></span>
+          <span class="font-medium">${escHtml(c.titulo)}</span>
+          <span class="text-xs font-mono ${activa ? 'text-violeta-300' : 'text-carbon-500'}">${n}</span>
+        </button>`;
+    }).join('');
+
+    tabsMobil.querySelectorAll<HTMLButtonElement>('.tab-col').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        columnaActivaMobil = btn.dataset.tabCol!;
+        aplicarVisibilidadMobil();
+        renderTabsMobil(cols);
+      });
+    });
+  }
+
+  function aplicarVisibilidadMobil() {
+    // En lg+ todas se ven (CSS lo controla); en <lg sólo la activa
+    tablero.querySelectorAll<HTMLElement>('.columna').forEach((el) => {
+      const id = el.dataset.columnaId;
+      el.classList.toggle('hidden', id !== columnaActivaMobil);
+      el.classList.add('lg:flex'); // forzamos flex en desktop independiente del hidden
+    });
+  }
+
   function renderizar() {
     const cols = [...columnas].sort((a, b) => a.orden - b.orden);
+    if (!columnaActivaMobil || !cols.find((c) => c.id === columnaActivaMobil)) {
+      columnaActivaMobil = cols[0]?.id ?? null;
+    }
     tablero.innerHTML = cols.map(renderColumna).join('') + `
-      <button type="button" id="btn-nueva-col" class="shrink-0 w-[280px] h-14 rounded-xl border border-dashed border-carbon-700 text-carbon-400 hover:border-violeta-500/50 hover:text-white hover:bg-carbon-900/40 transition flex items-center justify-center gap-2 self-start mt-12">
+      <button type="button" id="btn-nueva-col" class="shrink-0 w-full lg:w-[280px] h-14 rounded-xl border border-dashed border-carbon-700 text-carbon-400 hover:border-violeta-500/50 hover:text-white hover:bg-carbon-900/40 transition flex items-center justify-center gap-2 lg:self-start lg:mt-12">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
         Nueva columna
       </button>`;
+    renderTabsMobil(cols);
+    aplicarVisibilidadMobil();
     vincularEventos();
   }
 
