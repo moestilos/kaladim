@@ -18,6 +18,7 @@ const items = [
   { href: '/admin/servicios', icono: 'caja', etiqueta: 'Servicios' },
   { href: '/admin/casos', icono: 'panel', etiqueta: 'Apps lanzadas' },
   { href: '/admin/kanban', icono: 'tablero', etiqueta: 'Kanban' },
+  { href: '/admin/ideas',  icono: 'bombilla', etiqueta: 'Ideario' },
   { href: '/admin/automatizaciones', icono: 'rayo', etiqueta: 'Automatizaciones' },
   { href: '/admin/usuarios', icono: 'escudo', etiqueta: 'Usuarios' },
   { href: '/admin/leads', icono: 'bandeja', etiqueta: 'Leads' },
@@ -92,6 +93,11 @@ function activo(href: string) {
               {i.icono === 'tablero' && (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
                   <rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/>
+                </svg>
+              )}
+              {i.icono === 'bombilla' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+                  <path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.8c.6.4 1 1.1 1 1.9V17h6v-.3c0-.8.4-1.5 1-1.9A7 7 0 0012 2z" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               )}
               {i.icono === 'rayo' && (

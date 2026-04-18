@@ -1,0 +1,667 @@
+---
+// Ideario — roadmap interno con quick-add, scoring impacto/esfuerzo,
+// votos, lifecycle, matriz quick-wins y convertir-en-proyecto.
+
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import { db, esquema } from '../../../lib/db/cliente';
+import { desc, asc } from 'drizzle-orm';
+
+export const prerender = false;
+
+type Idea = {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  tipo: string;
+  estado: string;
+  impacto: number;
+  esfuerzo: number;
+  votos: number;
+  etiquetas: string;
+  proyectoId: string | null;
+  creadoEn: Date | string;
+};
+type Proy = { id: string; titulo: string };
+
+let ideas: Idea[] = [];
+let proyectos: Proy[] = [];
+let errorMsg: string | null = null;
+let modoDemo = false;
+
+try {
+  if (import.meta.env.DATABASE_URL) {
+    ideas = await db.select().from(esquema.ideas).orderBy(desc(esquema.ideas.creadoEn)) as any;
+    proyectos = await db
+      .select({ id: esquema.proyectos.id, titulo: esquema.proyectos.titulo })
+      .from(esquema.proyectos)
+      .orderBy(asc(esquema.proyectos.titulo)) as any;
+  } else {
+    modoDemo = true;
+    errorMsg = 'Sin DATABASE_URL — modo demo (cambios no persisten)';
+    ideas = [
+      { id: 'd1', titulo: 'Añadir modo oscuro al panel cliente', descripcion: 'Mucha gente trabaja de noche', tipo: 'feature', estado: 'idea', impacto: 4, esfuerzo: 2, votos: 3, etiquetas: '["ux","dark-mode"]', proyectoId: null, creadoEn: new Date() },
+      { id: 'd2', titulo: 'Notificaciones email al cliente cuando cambie estado proyecto', descripcion: null, tipo: 'mejora', estado: 'planificada', impacto: 5, esfuerzo: 3, votos: 7, etiquetas: '["notificaciones","email"]', proyectoId: null, creadoEn: new Date() },
+      { id: 'd3', titulo: 'Integración con WhatsApp Business', descripcion: 'Los clientes preguntan mucho por aquí', tipo: 'cliente', estado: 'considerando', impacto: 5, esfuerzo: 5, votos: 12, etiquetas: '["integración","whatsapp"]', proyectoId: null, creadoEn: new Date() },
+      { id: 'd4', titulo: 'Exportar reportes en PDF', descripcion: null, tipo: 'feature', estado: 'implementada', impacto: 3, esfuerzo: 2, votos: 5, etiquetas: '["pdf","reportes"]', proyectoId: null, creadoEn: new Date() },
+    ];
+    proyectos = [];
+  }
+} catch (e) {
+  errorMsg = e instanceof Error ? e.message : 'Error';
+}
+
+// Stats rápidas
+const stats = {
+  total: ideas.length,
+  activas: ideas.filter((i) => !['implementada', 'descartada'].includes(i.estado)).length,
+  implementadas: ideas.filter((i) => i.estado === 'implementada').length,
+  ratio: ideas.length === 0 ? 0 : Math.round((ideas.filter((i) => i.estado === 'implementada').length / ideas.length) * 100),
+};
+---
+
+<LayoutAdmin titulo="Ideario" subtitulo="Roadmap interno de ideas y mejoras">
+  <EncabezadoSeccion
+    titulo="Ideario"
+    descripcion="Captura rápida, prioriza por impacto × esfuerzo, vota y convierte en proyectos."
+  />
+
+  {errorMsg && (
+    <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+      ⚠ {errorMsg}
+    </div>
+  )}
+
+  <!-- ═══ Stats ═══ -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="tarjeta p-4">
+      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Total ideas</div>
+      <div class="mt-1 text-2xl font-display font-bold text-white">{stats.total}</div>
+    </div>
+    <div class="tarjeta p-4">
+      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Activas</div>
+      <div class="mt-1 text-2xl font-display font-bold text-violeta-300">{stats.activas}</div>
+    </div>
+    <div class="tarjeta p-4">
+      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Implementadas</div>
+      <div class="mt-1 text-2xl font-display font-bold text-emerald-400">{stats.implementadas}</div>
+    </div>
+    <div class="tarjeta p-4">
+      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Ratio</div>
+      <div class="mt-1 flex items-baseline gap-2">
+        <span class="text-2xl font-display font-bold text-white">{stats.ratio}%</span>
+        <span class="text-[10px] text-carbon-500">completadas</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Quick-add ═══ -->
+  <form id="quick-add" class="tarjeta p-4 mb-4">
+    <div class="flex flex-col sm:flex-row gap-2">
+      <div class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-carbon-700 bg-carbon-900 focus-within:border-violeta-500 transition">
+        <span class="text-lg text-carbon-500">💡</span>
+        <input
+          id="input-quick"
+          type="text"
+          placeholder="¿Qué idea se te ocurre? (Enter para guardar)"
+          maxlength="200"
+          class="flex-1 bg-transparent text-sm text-white placeholder:text-carbon-500 focus:outline-none"
+        />
+      </div>
+      <select id="quick-tipo" class="input py-2 text-sm sm:max-w-[140px]">
+        <option value="feature">Feature</option>
+        <option value="mejora">Mejora</option>
+        <option value="bug">Bug</option>
+        <option value="cliente">Cliente</option>
+        <option value="interno">Interno</option>
+      </select>
+      <button type="submit" class="btn-primario text-sm">+ Añadir</button>
+    </div>
+  </form>
+
+  <!-- ═══ Filtros + vistas ═══ -->
+  <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
+    <div class="flex gap-1 p-1 rounded-lg bg-carbon-900 border border-carbon-800 overflow-x-auto">
+      <button data-estado="" class="btn-filtro-estado activa px-2.5 py-1 text-xs rounded bg-carbon-800 text-white whitespace-nowrap">Todas</button>
+      <button data-estado="idea" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Ideas</button>
+      <button data-estado="considerando" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Considerando</button>
+      <button data-estado="planificada" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Planificadas</button>
+      <button data-estado="en_progreso" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">En progreso</button>
+      <button data-estado="implementada" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Implementadas</button>
+    </div>
+
+    <div class="flex items-center gap-2 sm:ml-auto">
+      <label class="text-xs text-carbon-400 whitespace-nowrap">Ordenar:</label>
+      <select id="orden" class="input py-1.5 text-xs w-auto">
+        <option value="recientes">Recientes</option>
+        <option value="votos">Más votadas</option>
+        <option value="impacto">Mayor impacto</option>
+        <option value="quickwins">Quick wins</option>
+      </select>
+      <div class="flex gap-1 p-1 rounded-lg bg-carbon-900 border border-carbon-800">
+        <button id="vista-lista" class="btn-vista activa p-1.5 rounded bg-carbon-800 text-white" title="Lista">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke-linecap="round"/></svg>
+        </button>
+        <button id="vista-matriz" class="btn-vista p-1.5 rounded text-carbon-400 hover:text-white" title="Matriz impacto × esfuerzo">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Vista Lista (cards) ═══ -->
+  <div id="vista-lista-cont" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"></div>
+
+  <!-- ═══ Vista Matriz (impacto × esfuerzo) ═══ -->
+  <div id="vista-matriz-cont" class="hidden">
+    <div class="tarjeta p-4 sm:p-6">
+      <div class="mb-4 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-white">Matriz de priorización</h3>
+        <div class="text-xs text-carbon-500 font-mono">Y = impacto · X = esfuerzo</div>
+      </div>
+      <div class="relative w-full aspect-square sm:aspect-[2/1] bg-carbon-950/50 rounded-lg border border-carbon-800 overflow-hidden">
+        <!-- Cuadrantes -->
+        <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+          <div class="border-r border-b border-carbon-800/60 bg-emerald-500/[0.03] relative">
+            <span class="absolute top-2 left-2 text-[10px] uppercase tracking-wider text-emerald-400/70 font-mono">Quick wins</span>
+          </div>
+          <div class="border-b border-carbon-800/60 relative">
+            <span class="absolute top-2 right-2 text-[10px] uppercase tracking-wider text-violeta-300/70 font-mono">Big bets</span>
+          </div>
+          <div class="border-r border-carbon-800/60 relative">
+            <span class="absolute bottom-2 left-2 text-[10px] uppercase tracking-wider text-carbon-500 font-mono">Fill-ins</span>
+          </div>
+          <div class="relative bg-red-500/[0.02]">
+            <span class="absolute bottom-2 right-2 text-[10px] uppercase tracking-wider text-red-400/60 font-mono">Time sinks</span>
+          </div>
+        </div>
+        <!-- Puntos se inyectan por JS -->
+        <div id="matriz-puntos" class="absolute inset-0"></div>
+        <!-- Ejes labels -->
+        <div class="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-carbon-500 font-mono origin-center">← Más impacto</div>
+        <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-carbon-500 font-mono">Más esfuerzo →</div>
+      </div>
+    </div>
+  </div>
+</LayoutAdmin>
+
+<!-- ═══ MODAL EDITAR IDEA ═══ -->
+<div id="modal-idea" class="fixed inset-0 z-[100] hidden items-start justify-center pt-[6vh] px-4" role="dialog" aria-modal="true">
+  <div class="absolute inset-0 bg-carbon-950/70 backdrop-blur-md" id="modal-idea-fondo"></div>
+  <div class="relative w-full max-w-lg tarjeta-glass p-6 animate-modal-in max-h-[88vh] overflow-y-auto">
+    <form id="form-idea" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-display font-semibold text-white">Editar idea</h3>
+        <button type="button" id="cerrar-modal-idea" class="text-carbon-400 hover:text-white">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div>
+        <label class="etiqueta" for="i-titulo">Título *</label>
+        <input id="i-titulo" name="titulo" required class="input" maxlength="200" />
+      </div>
+      <div>
+        <label class="etiqueta" for="i-desc">Descripción</label>
+        <textarea id="i-desc" name="descripcion" rows="3" class="input resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="etiqueta" for="i-tipo">Tipo</label>
+          <select id="i-tipo" name="tipo" class="input">
+            <option value="feature">Feature</option>
+            <option value="mejora">Mejora</option>
+            <option value="bug">Bug</option>
+            <option value="cliente">Cliente</option>
+            <option value="interno">Interno</option>
+          </select>
+        </div>
+        <div>
+          <label class="etiqueta" for="i-estado">Estado</label>
+          <select id="i-estado" name="estado" class="input">
+            <option value="idea">Idea</option>
+            <option value="considerando">Considerando</option>
+            <option value="planificada">Planificada</option>
+            <option value="en_progreso">En progreso</option>
+            <option value="implementada">Implementada</option>
+            <option value="descartada">Descartada</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="etiqueta flex justify-between" for="i-impacto">Impacto <span class="text-violeta-300 font-mono text-xs" id="v-impacto">3</span></label>
+          <input id="i-impacto" name="impacto" type="range" min="1" max="5" step="1" class="w-full accent-violeta-600" />
+        </div>
+        <div>
+          <label class="etiqueta flex justify-between" for="i-esfuerzo">Esfuerzo <span class="text-amber-300 font-mono text-xs" id="v-esfuerzo">3</span></label>
+          <input id="i-esfuerzo" name="esfuerzo" type="range" min="1" max="5" step="1" class="w-full accent-amber-500" />
+        </div>
+      </div>
+      <div>
+        <label class="etiqueta" for="i-etiquetas">Etiquetas (separadas por coma)</label>
+        <input id="i-etiquetas" name="etiquetas" class="input" />
+      </div>
+
+      <input type="hidden" id="i-id" />
+
+      <div class="flex items-center justify-between pt-3 border-t border-carbon-800">
+        <button type="button" id="btn-borrar-idea" class="text-sm text-red-400 hover:text-red-300">Eliminar</button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" id="cancelar-modal-idea" class="btn-fantasma">Cancelar</button>
+          <button type="submit" class="btn-primario">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL CONVERTIR EN PROYECTO ═══ -->
+<div id="modal-convertir" class="fixed inset-0 z-[100] hidden items-start justify-center pt-[10vh] px-4" role="dialog" aria-modal="true">
+  <div class="absolute inset-0 bg-carbon-950/70 backdrop-blur-md" id="modal-convertir-fondo"></div>
+  <div class="relative w-full max-w-md tarjeta-glass p-6 animate-modal-in">
+    <h3 class="text-lg font-display font-semibold text-white mb-1">Convertir en proyecto</h3>
+    <p class="text-sm text-carbon-400 mb-4" id="convertir-titulo-idea"></p>
+    <div>
+      <label class="etiqueta" for="c-cliente">Cliente asociado *</label>
+      <select id="c-cliente" class="input" required></select>
+    </div>
+    <input type="hidden" id="c-idea-id" />
+    <div class="flex gap-2 mt-4 justify-end">
+      <button type="button" id="cancelar-convertir" class="btn-fantasma">Cancelar</button>
+      <button type="button" id="confirmar-convertir" class="btn-primario">Crear proyecto</button>
+    </div>
+  </div>
+</div>
+
+<script id="datos-iniciales" type="application/json" set:html={JSON.stringify({ ideas, proyectos, modoDemo })}></script>
+
+<script>
+  type Idea = {
+    id: string; titulo: string; descripcion: string | null;
+    tipo: string; estado: string;
+    impacto: number; esfuerzo: number; votos: number;
+    etiquetas: string; proyectoId: string | null;
+    creadoEn: string | Date;
+  };
+
+  const datos = JSON.parse(document.getElementById('datos-iniciales')!.textContent!);
+  let ideas: Idea[] = datos.ideas;
+  const proyectos: { id: string; titulo: string }[] = datos.proyectos;
+  const modoDemo: boolean = datos.modoDemo;
+
+  let filtroEstado = '';
+  let orden: 'recientes' | 'votos' | 'impacto' | 'quickwins' = 'recientes';
+  let vista: 'lista' | 'matriz' = 'lista';
+
+  // ── Helpers ──
+  const ESTADOS_CONFIG: Record<string, { l: string; clase: string }> = {
+    idea:          { l: 'Idea',          clase: 'bg-carbon-800 text-carbon-300 border-carbon-700' },
+    considerando:  { l: 'Considerando',  clase: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+    planificada:   { l: 'Planificada',   clase: 'bg-violeta-500/15 text-violeta-300 border-violeta-500/30' },
+    en_progreso:   { l: 'En progreso',   clase: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' },
+    implementada:  { l: 'Implementada',  clase: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+    descartada:    { l: 'Descartada',    clase: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  };
+  const TIPOS_ICONO: Record<string, string> = {
+    feature: '✨', mejora: '⚡', bug: '🐛', cliente: '💬', interno: '🔧',
+  };
+
+  function escHtml(s: string | null | undefined): string {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function filtrarYOrdenar(): Idea[] {
+    let lista = ideas.slice();
+    if (filtroEstado) lista = lista.filter((i) => i.estado === filtroEstado);
+    if (orden === 'recientes') lista.sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+    else if (orden === 'votos') lista.sort((a, b) => b.votos - a.votos);
+    else if (orden === 'impacto') lista.sort((a, b) => b.impacto - a.impacto);
+    else if (orden === 'quickwins') lista.sort((a, b) => (b.impacto / b.esfuerzo) - (a.impacto / a.esfuerzo));
+    return lista;
+  }
+
+  function renderEstrellas(n: number, color: string): string {
+    return Array.from({ length: 5 }, (_, i) =>
+      `<span class="${i < n ? color : 'text-carbon-700'}">●</span>`
+    ).join('');
+  }
+
+  function renderCard(i: Idea): string {
+    const cfg = ESTADOS_CONFIG[i.estado];
+    let tags: string[] = [];
+    try { tags = JSON.parse(i.etiquetas); } catch {}
+    const fecha = new Date(i.creadoEn).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+
+    return `
+      <article class="tarjeta-interactiva p-4 flex flex-col gap-3" data-id="${i.id}">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <span class="text-lg shrink-0" title="${escHtml(i.tipo)}">${TIPOS_ICONO[i.tipo] ?? '💡'}</span>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${cfg.clase}">${cfg.l}</span>
+          </div>
+          <button class="btn-votar flex items-center gap-1 text-xs text-carbon-400 hover:text-violeta-300 transition" data-id="${i.id}" title="Votar">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="font-mono">${i.votos}</span>
+          </button>
+        </div>
+
+        <h3 class="text-sm font-medium text-white leading-snug line-clamp-2">${escHtml(i.titulo)}</h3>
+        ${i.descripcion ? `<p class="text-xs text-carbon-400 line-clamp-2">${escHtml(i.descripcion)}</p>` : ''}
+
+        <div class="flex items-center gap-3 text-[10px] font-mono">
+          <span class="flex items-center gap-1">
+            <span class="text-carbon-500 uppercase tracking-wider">Imp</span>
+            ${renderEstrellas(i.impacto, 'text-violeta-400')}
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="text-carbon-500 uppercase tracking-wider">Esf</span>
+            ${renderEstrellas(i.esfuerzo, 'text-amber-400')}
+          </span>
+        </div>
+
+        ${tags.length ? `<div class="flex flex-wrap gap-1">
+          ${tags.map((t) => `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-carbon-800 border border-carbon-700 text-carbon-300">#${escHtml(t)}</span>`).join('')}
+        </div>` : ''}
+
+        <div class="flex items-center justify-between pt-2 mt-auto border-t border-carbon-800/60 text-[10px] text-carbon-500">
+          <span class="font-mono">${fecha}</span>
+          <div class="flex gap-1">
+            ${!i.proyectoId && !['implementada','descartada'].includes(i.estado)
+              ? `<button class="btn-convertir px-2 py-1 rounded hover:bg-violeta-500/10 hover:text-violeta-300 transition" data-id="${i.id}" title="Convertir en proyecto">→ proyecto</button>`
+              : ''}
+            ${i.proyectoId
+              ? `<a href="/admin/proyectos/${i.proyectoId}" class="px-2 py-1 rounded bg-violeta-500/10 text-violeta-300 hover:bg-violeta-500/20">Ver proyecto</a>`
+              : ''}
+            <button class="btn-editar px-2 py-1 rounded hover:bg-carbon-800" data-id="${i.id}">Editar</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderLista() {
+    const cont = document.getElementById('vista-lista-cont')!;
+    const lista = filtrarYOrdenar();
+    if (lista.length === 0) {
+      cont.innerHTML = `<div class="col-span-full tarjeta p-8 text-center text-sm text-carbon-500">No hay ideas con este filtro. Añade la primera arriba ↑</div>`;
+      return;
+    }
+    cont.innerHTML = lista.map(renderCard).join('');
+    vincularEventosCards();
+  }
+
+  function renderMatriz() {
+    const cont = document.getElementById('matriz-puntos')!;
+    const lista = filtrarYOrdenar();
+    // En la matriz: x = esfuerzo (izq→dcha 1→5), y = impacto (abajo→arriba 1→5)
+    // Posición: left% = (esfuerzo-1)/4*100 ; top% = 100 - (impacto-1)/4*100
+    cont.innerHTML = lista.map((i) => {
+      const left = ((i.esfuerzo - 1) / 4) * 100;
+      const top  = 100 - ((i.impacto - 1) / 4) * 100;
+      const color = i.estado === 'implementada' ? 'bg-emerald-500' :
+                    i.estado === 'descartada' ? 'bg-red-500' :
+                    'bg-violeta-500';
+      return `
+        <button
+          data-id="${i.id}"
+          class="btn-punto absolute group -translate-x-1/2 -translate-y-1/2 transition-all hover:z-10"
+          style="left: ${left}%; top: ${top}%;"
+          title="${escHtml(i.titulo)}"
+        >
+          <span class="block h-3 w-3 sm:h-4 sm:w-4 rounded-full ${color} shadow-lg ring-2 ring-carbon-950 group-hover:scale-150 transition"></span>
+          <span class="absolute -top-1 left-full ml-2 whitespace-nowrap text-xs text-white bg-carbon-900 border border-carbon-700 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none z-20">
+            ${escHtml(i.titulo)} · ${i.votos} votos
+          </span>
+        </button>
+      `;
+    }).join('');
+    // Click punto → editar
+    cont.querySelectorAll<HTMLButtonElement>('.btn-punto').forEach((b) => {
+      b.addEventListener('click', () => abrirModal(b.dataset.id!));
+    });
+  }
+
+  function pintar() {
+    if (vista === 'lista') {
+      document.getElementById('vista-lista-cont')!.classList.remove('hidden');
+      document.getElementById('vista-matriz-cont')!.classList.add('hidden');
+      renderLista();
+    } else {
+      document.getElementById('vista-lista-cont')!.classList.add('hidden');
+      document.getElementById('vista-matriz-cont')!.classList.remove('hidden');
+      renderMatriz();
+    }
+  }
+
+  // ── Eventos ──
+  function vincularEventosCards() {
+    document.querySelectorAll<HTMLButtonElement>('.btn-editar').forEach((b) => {
+      b.addEventListener('click', () => abrirModal(b.dataset.id!));
+    });
+    document.querySelectorAll<HTMLButtonElement>('.btn-votar').forEach((b) => {
+      b.addEventListener('click', async (e) => { e.stopPropagation(); await votar(b.dataset.id!); });
+    });
+    document.querySelectorAll<HTMLButtonElement>('.btn-convertir').forEach((b) => {
+      b.addEventListener('click', () => abrirConvertir(b.dataset.id!));
+    });
+  }
+
+  // ── Votar ──
+  async function votar(id: string) {
+    const idx = ideas.findIndex((i) => i.id === id);
+    if (idx < 0) return;
+    ideas[idx].votos += 1;
+    pintar();
+    if (modoDemo) return;
+    try {
+      await fetch(`/api/ideas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ __votar: true }),
+      });
+    } catch {}
+  }
+
+  // ── Quick add ──
+  const quickAdd = document.getElementById('quick-add') as HTMLFormElement;
+  const inputQuick = document.getElementById('input-quick') as HTMLInputElement;
+  const quickTipo = document.getElementById('quick-tipo') as HTMLSelectElement;
+  quickAdd.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const titulo = inputQuick.value.trim();
+    if (!titulo) return;
+    const datos = { titulo, tipo: quickTipo.value };
+    if (modoDemo) {
+      ideas.unshift({
+        id: 'demo-' + Math.random().toString(36).slice(2, 7),
+        titulo, descripcion: null, tipo: datos.tipo, estado: 'idea',
+        impacto: 3, esfuerzo: 3, votos: 0, etiquetas: '[]',
+        proyectoId: null, creadoEn: new Date().toISOString(),
+      });
+      inputQuick.value = '';
+      pintar();
+      return;
+    }
+    try {
+      const res = await fetch('/api/ideas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) throw new Error();
+      const creada = await res.json();
+      ideas.unshift(creada);
+      inputQuick.value = '';
+      pintar();
+    } catch { alert('Error al crear idea'); }
+  });
+
+  // ── Filtros estado ──
+  document.querySelectorAll<HTMLButtonElement>('.btn-filtro-estado').forEach((b) => {
+    b.addEventListener('click', () => {
+      filtroEstado = b.dataset.estado!;
+      document.querySelectorAll('.btn-filtro-estado').forEach((x) => {
+        x.classList.remove('activa', 'bg-carbon-800', 'text-white');
+        x.classList.add('text-carbon-400');
+      });
+      b.classList.add('activa', 'bg-carbon-800', 'text-white');
+      b.classList.remove('text-carbon-400');
+      pintar();
+    });
+  });
+
+  // ── Orden ──
+  (document.getElementById('orden') as HTMLSelectElement).addEventListener('change', (e) => {
+    orden = (e.target as HTMLSelectElement).value as any;
+    pintar();
+  });
+
+  // ── Toggle vista ──
+  document.getElementById('vista-lista')!.addEventListener('click', () => {
+    vista = 'lista';
+    document.getElementById('vista-lista')!.classList.add('activa', 'bg-carbon-800', 'text-white');
+    document.getElementById('vista-lista')!.classList.remove('text-carbon-400');
+    document.getElementById('vista-matriz')!.classList.remove('activa', 'bg-carbon-800', 'text-white');
+    document.getElementById('vista-matriz')!.classList.add('text-carbon-400');
+    pintar();
+  });
+  document.getElementById('vista-matriz')!.addEventListener('click', () => {
+    vista = 'matriz';
+    document.getElementById('vista-matriz')!.classList.add('activa', 'bg-carbon-800', 'text-white');
+    document.getElementById('vista-matriz')!.classList.remove('text-carbon-400');
+    document.getElementById('vista-lista')!.classList.remove('activa', 'bg-carbon-800', 'text-white');
+    document.getElementById('vista-lista')!.classList.add('text-carbon-400');
+    pintar();
+  });
+
+  // ── Modal editar ──
+  const modal = document.getElementById('modal-idea')!;
+  const formI = document.getElementById('form-idea') as HTMLFormElement;
+  const vImpacto = document.getElementById('v-impacto')!;
+  const vEsfuerzo = document.getElementById('v-esfuerzo')!;
+  (document.getElementById('i-impacto') as HTMLInputElement).addEventListener('input', (e) => {
+    vImpacto.textContent = (e.target as HTMLInputElement).value;
+  });
+  (document.getElementById('i-esfuerzo') as HTMLInputElement).addEventListener('input', (e) => {
+    vEsfuerzo.textContent = (e.target as HTMLInputElement).value;
+  });
+
+  function abrirModal(id: string) {
+    const i = ideas.find((x) => x.id === id);
+    if (!i) return;
+    (document.getElementById('i-id') as HTMLInputElement).value = i.id;
+    (document.getElementById('i-titulo') as HTMLInputElement).value = i.titulo;
+    (document.getElementById('i-desc') as HTMLTextAreaElement).value = i.descripcion ?? '';
+    (document.getElementById('i-tipo') as HTMLSelectElement).value = i.tipo;
+    (document.getElementById('i-estado') as HTMLSelectElement).value = i.estado;
+    (document.getElementById('i-impacto') as HTMLInputElement).value = String(i.impacto);
+    (document.getElementById('i-esfuerzo') as HTMLInputElement).value = String(i.esfuerzo);
+    vImpacto.textContent = String(i.impacto);
+    vEsfuerzo.textContent = String(i.esfuerzo);
+    try {
+      const tags = JSON.parse(i.etiquetas) as string[];
+      (document.getElementById('i-etiquetas') as HTMLInputElement).value = tags.join(', ');
+    } catch {}
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+  function cerrarModal() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+  document.getElementById('cerrar-modal-idea')!.addEventListener('click', cerrarModal);
+  document.getElementById('cancelar-modal-idea')!.addEventListener('click', cerrarModal);
+  document.getElementById('modal-idea-fondo')!.addEventListener('click', cerrarModal);
+
+  formI.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = (document.getElementById('i-id') as HTMLInputElement).value;
+    const datos: any = Object.fromEntries(new FormData(formI).entries());
+    datos.etiquetas = JSON.stringify(
+      (datos.etiquetas as string).split(',').map((s) => s.trim()).filter(Boolean),
+    );
+    if (!datos.descripcion) datos.descripcion = null;
+    if (modoDemo) {
+      ideas = ideas.map((i) => i.id === id ? { ...i, ...datos, impacto: +datos.impacto, esfuerzo: +datos.esfuerzo } : i);
+      cerrarModal(); pintar(); return;
+    }
+    try {
+      const res = await fetch(`/api/ideas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) throw new Error();
+      const act = await res.json();
+      ideas = ideas.map((i) => i.id === id ? act : i);
+      cerrarModal(); pintar();
+    } catch { alert('Error al guardar'); }
+  });
+
+  document.getElementById('btn-borrar-idea')!.addEventListener('click', async () => {
+    const id = (document.getElementById('i-id') as HTMLInputElement).value;
+    if (!confirm('¿Eliminar idea?')) return;
+    ideas = ideas.filter((i) => i.id !== id);
+    cerrarModal(); pintar();
+    if (modoDemo) return;
+    await fetch(`/api/ideas/${id}`, { method: 'DELETE' });
+  });
+
+  // ── Convertir en proyecto ──
+  const modalConv = document.getElementById('modal-convertir')!;
+  const selCliente = document.getElementById('c-cliente') as HTMLSelectElement;
+
+  function abrirConvertir(ideaId: string) {
+    const i = ideas.find((x) => x.id === ideaId);
+    if (!i) return;
+    if (proyectos.length === 0 && !modoDemo) {
+      // Proyectos vacíos — el convertir necesita cliente. Vamos a pedir cliente.
+    }
+    (document.getElementById('c-idea-id') as HTMLInputElement).value = ideaId;
+    document.getElementById('convertir-titulo-idea')!.textContent = i.titulo;
+
+    // Cargar clientes
+    fetch('/api/clientes').then((r) => r.json()).then((clientes) => {
+      selCliente.innerHTML = '<option value="">— Selecciona cliente —</option>' +
+        clientes.map((c: any) => `<option value="${c.id}">${escHtml(c.empresa)}</option>`).join('');
+    }).catch(() => { selCliente.innerHTML = '<option value="">Error cargando clientes</option>'; });
+
+    modalConv.classList.remove('hidden');
+    modalConv.classList.add('flex');
+  }
+  function cerrarConvertir() { modalConv.classList.add('hidden'); modalConv.classList.remove('flex'); }
+  document.getElementById('cancelar-convertir')!.addEventListener('click', cerrarConvertir);
+  document.getElementById('modal-convertir-fondo')!.addEventListener('click', cerrarConvertir);
+
+  document.getElementById('confirmar-convertir')!.addEventListener('click', async () => {
+    const ideaId = (document.getElementById('c-idea-id') as HTMLInputElement).value;
+    const clienteId = selCliente.value;
+    if (!clienteId) { alert('Selecciona un cliente'); return; }
+    if (modoDemo) { alert('Modo demo — necesita DB'); cerrarConvertir(); return; }
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/convertir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId }),
+      });
+      if (!res.ok) throw new Error();
+      const { proyectoId } = await res.json();
+      location.href = `/admin/proyectos/${proyectoId}`;
+    } catch { alert('Error al convertir'); }
+  });
+
+  // ESC cierra modales
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { cerrarModal(); cerrarConvertir(); }
+  });
+
+  pintar();
+</script>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

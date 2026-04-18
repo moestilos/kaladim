@@ -75,6 +75,21 @@ export const esquemaCasoEstudio = z.object({
   activo: z.coerce.boolean().default(true),
 });
 
+export const esquemaIdea = z.object({
+  titulo: z.string().min(2).max(200),
+  descripcion: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().optional()),
+  tipo: z.enum(['feature', 'mejora', 'bug', 'cliente', 'interno']).default('feature'),
+  estado: z.enum(['idea', 'considerando', 'planificada', 'en_progreso', 'implementada', 'descartada']).default('idea'),
+  impacto: z.coerce.number().int().min(1).max(5).default(3),
+  esfuerzo: z.coerce.number().int().min(1).max(5).default(3),
+  etiquetas: z.union([z.string(), z.array(z.string())]).transform((v) =>
+    typeof v === 'string'
+      ? JSON.stringify(v.split(',').map((s) => s.trim()).filter(Boolean))
+      : JSON.stringify(v),
+  ).default('[]'),
+  proyectoId: z.preprocess((v) => (v === '' ? null : v), z.string().uuid().nullable().optional()),
+});
+
 export const esquemaKanbanColumna = z.object({
   titulo: z.string().min(1).max(120),
   color: z.enum(['carbon', 'violeta', 'emerald', 'amber', 'red', 'cyan']).default('carbon'),

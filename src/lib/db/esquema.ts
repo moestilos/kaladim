@@ -241,6 +241,41 @@ export const kanbanTarjetas = pgTable(
   }),
 );
 
+// ─── IDEARIO (tabla de ideas / roadmap interno) ─────────────────────────
+
+export const tipoIdeaEnum = pgEnum('tipo_idea', ['feature', 'mejora', 'bug', 'cliente', 'interno']);
+export const estadoIdeaEnum = pgEnum('estado_idea', [
+  'idea',          // capturada, sin revisar
+  'considerando',  // en evaluación
+  'planificada',   // aceptada, pendiente de ejecutar
+  'en_progreso',
+  'implementada',
+  'descartada',
+]);
+
+export const ideas = pgTable(
+  'ideas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    titulo: varchar('titulo', { length: 200 }).notNull(),
+    descripcion: text('descripcion'),
+    tipo: tipoIdeaEnum('tipo').notNull().default('feature'),
+    estado: estadoIdeaEnum('estado').notNull().default('idea'),
+    impacto: integer('impacto').notNull().default(3),       // 1-5
+    esfuerzo: integer('esfuerzo').notNull().default(3),     // 1-5
+    votos: integer('votos').notNull().default(0),
+    etiquetas: text('etiquetas').notNull().default('[]'),   // JSON string[]
+    proyectoId: uuid('proyecto_id').references(() => proyectos.id, { onDelete: 'set null' }),
+    creadoPorEmail: varchar('creado_por_email', { length: 255 }),
+    creadoEn: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
+    actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    estadoIdx: index('ideas_estado_idx').on(t.estado),
+    votosIdx: index('ideas_votos_idx').on(t.votos),
+  }),
+);
+
 // ─── VISITAS (analytics propios) ────────────────────────────────────────
 
 export const visitas = pgTable(
@@ -328,3 +363,5 @@ export type KanbanColumna = typeof kanbanColumnas.$inferSelect;
 export type NuevaKanbanColumna = typeof kanbanColumnas.$inferInsert;
 export type KanbanTarjeta = typeof kanbanTarjetas.$inferSelect;
 export type NuevaKanbanTarjeta = typeof kanbanTarjetas.$inferInsert;
+export type Idea = typeof ideas.$inferSelect;
+export type NuevaIdea = typeof ideas.$inferInsert;
