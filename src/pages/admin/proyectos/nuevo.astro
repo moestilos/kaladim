@@ -1,0 +1,10 @@
+---
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import FormularioProyecto from '../../../componentes/admin/FormularioProyecto.astro';
+export const prerender = false;
+---
+<LayoutAdmin titulo="Nuevo proyecto">
+  <EncabezadoSeccion titulo="Nuevo proyecto" descripcion="Crear entregable vinculado a un cliente" />
+  <FormularioProyecto modo="crear" />
+</LayoutAdmin>

@@ -13,11 +13,18 @@ export const esquemaCliente = z.object({
   notas: z.preprocess(vacioANulo, z.string().nullable().optional()),
 });
 
+const fechaOpcional = z.preprocess(
+  (v) => (v === '' || v == null ? null : new Date(v as string)),
+  z.date().nullable().optional(),
+);
+
 export const esquemaProyecto = z.object({
   clienteId: z.string().uuid(),
   titulo: z.string().min(2).max(200),
   descripcion: z.preprocess(vacioANulo, z.string().nullable().optional()),
   estado: z.enum(['borrador', 'en_progreso', 'en_revision', 'completado', 'pausado', 'cancelado']).optional(),
+  fechaInicio: fechaOpcional,
+  fechaEntrega: fechaOpcional,
   presupuesto: z.preprocess(vacioANulo, z.string().nullable().optional()),
   progreso: z.coerce.number().min(0).max(100).optional(),
 });

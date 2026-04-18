@@ -16,29 +16,46 @@ try {
     error = 'Sin DATABASE_URL — ejemplo';
     filas = [
       { id: 'p1', titulo: 'Web corporativa Acme', estado: 'en_progreso', progreso: 65, presupuesto: '4500.00', creadoEn: new Date() },
-      { id: 'p2', titulo: 'Automatización facturación', estado: 'completado', progreso: 100, presupuesto: '2200.00', creadoEn: new Date() },
     ];
   }
 } catch (e) { error = e instanceof Error ? e.message : 'Error'; }
+
+const etiquetasEstado: Record<string, string> = {
+  borrador: 'Borrador',
+  en_progreso: 'En progreso',
+  en_revision: 'En revisión',
+  completado: 'Completado',
+  pausado: 'Pausado',
+  cancelado: 'Cancelado',
+};
+const filasFormateadas = filas.map((f) => ({
+  ...f,
+  estado: etiquetasEstado[f.estado] ?? f.estado,
+  progreso: f.progreso != null ? `${f.progreso}%` : '—',
+}));
 
 const columnas = [
   { clave: 'titulo', etiqueta: 'Proyecto' },
   { clave: 'estado', etiqueta: 'Estado' },
   { clave: 'progreso', etiqueta: 'Progreso' },
   { clave: 'presupuesto', etiqueta: 'Presupuesto', formato: 'moneda' as const },
-  { clave: 'creadoEn', etiqueta: 'Creado', formato: 'fecha' as const },
+  { clave: 'fechaEntrega', etiqueta: 'Entrega', formato: 'fecha' as const },
 ];
 ---
 <LayoutAdmin titulo="Proyectos" subtitulo="Seguimiento de entregables">
-  <EncabezadoSeccion titulo="Proyectos" hrefNuevo="/admin/proyectos/nuevo" textoNuevo="Nuevo proyecto" />
+  <EncabezadoSeccion
+    titulo="Proyectos"
+    descripcion={`${filas.length} ${filas.length === 1 ? 'proyecto' : 'proyectos'}`}
+    hrefNuevo="/admin/proyectos/nuevo"
+    textoNuevo="Nuevo proyecto"
+  />
   {error && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {error}</div>}
-  <TablaDatos columnas={columnas} filas={filas} mensajeVacio="Sin proyectos. Crea el primero." />
-
-  <div class="mt-6 tarjeta p-6 border-dashed border-violeta-500/30">
-    <p class="text-sm text-carbon-300">
-      🛠 <strong>CRUD completo de proyectos:</strong> usa <code class="text-violeta-300 font-mono text-xs">/admin/clientes</code> como plantilla.
-      Replica <code class="text-violeta-300 font-mono text-xs">FormularioCliente.astro</code> →
-      <code class="text-violeta-300 font-mono text-xs">FormularioProyecto.astro</code> y las rutas API equivalentes.
-    </p>
-  </div>
+  <TablaDatos
+    columnas={columnas}
+    filas={filasFormateadas}
+    rutaEditar={(f) => `/admin/proyectos/${f.id}`}
+    rutaEliminar="/api/proyectos"
+    mensajeVacio="Sin proyectos. Crea el primero."
+    placeholderBusqueda="Buscar por título, estado..."
+  />
 </LayoutAdmin>

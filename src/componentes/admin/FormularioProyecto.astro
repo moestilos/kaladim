@@ -1,0 +1,154 @@
+---
+import { db, esquema } from '../../lib/db/cliente';
+import { asc } from 'drizzle-orm';
+
+interface Proyecto {
+  id?: string;
+  clienteId?: string;
+  titulo?: string;
+  descripcion?: string | null;
+  estado?: string;
+  fechaInicio?: Date | string | null;
+  fechaEntrega?: Date | string | null;
+  presupuesto?: string | null;
+  progreso?: number;
+}
+
+interface Props {
+  proyecto?: Proyecto;
+  modo: 'crear' | 'editar';
+}
+const { proyecto, modo } = Astro.props;
+const accion = modo === 'crear' ? '/api/proyectos' : `/api/proyectos/${proyecto?.id}`;
+const metodo = modo === 'crear' ? 'POST' : 'PATCH';
+
+// Lista clientes pa' selector
+let clientes: { id: string; empresa: string }[] = [];
+try {
+  if (import.meta.env.DATABASE_URL) {
+    clientes = await db
+      .select({ id: esquema.clientes.id, empresa: esquema.clientes.empresa })
+      .from(esquema.clientes)
+      .orderBy(asc(esquema.clientes.empresa));
+  }
+} catch (e) { console.error('[FormularioProyecto] error clientes', e); }
+
+const estados = [
+  { v: 'borrador',     l: 'Borrador' },
+  { v: 'en_progreso',  l: 'En progreso' },
+  { v: 'en_revision',  l: 'En revisión' },
+  { v: 'completado',   l: 'Completado' },
+  { v: 'pausado',      l: 'Pausado' },
+  { v: 'cancelado',    l: 'Cancelado' },
+];
+
+function fechaInput(d: Date | string | null | undefined): string {
+  if (!d) return '';
+  const x = typeof d === 'string' ? new Date(d) : d;
+  if (isNaN(x.getTime())) return '';
+  return x.toISOString().slice(0, 10);
+}
+---
+
+<form id="formulario-proyecto" class="tarjeta p-6 sm:p-8 max-w-3xl space-y-5" data-accion={accion} data-metodo={metodo}>
+  <div>
+    <label class="etiqueta" for="clienteId">Cliente *</label>
+    <select id="clienteId" name="clienteId" required class="input">
+      <option value="">— Selecciona cliente —</option>
+      {clientes.map((c) => (
+        <option value={c.id} selected={c.id === proyecto?.clienteId}>{c.empresa}</option>
+      ))}
+    </select>
+    {clientes.length === 0 && (
+      <p class="text-xs text-amber-300 mt-1">⚠ No hay clientes. <a href="/admin/clientes/nuevo" class="underline">Crea uno primero</a>.</p>
+    )}
+  </div>
+
+  <div>
+    <label class="etiqueta" for="titulo">Título del proyecto *</label>
+    <input id="titulo" name="titulo" required class="input" maxlength="200" value={proyecto?.titulo ?? ''} placeholder="Web corporativa Acme" />
+  </div>
+
+  <div>
+    <label class="etiqueta" for="descripcion">Descripción</label>
+    <textarea id="descripcion" name="descripcion" rows="3" class="input resize-none">{proyecto?.descripcion ?? ''}</textarea>
+  </div>
+
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div>
+      <label class="etiqueta" for="estado">Estado</label>
+      <select id="estado" name="estado" class="input">
+        {estados.map((e) => (
+          <option value={e.v} selected={(proyecto?.estado ?? 'borrador') === e.v}>{e.l}</option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label class="etiqueta" for="presupuesto">Presupuesto (€)</label>
+      <input id="presupuesto" name="presupuesto" type="number" min="0" step="0.01" class="input" value={proyecto?.presupuesto ?? ''} placeholder="4500.00" />
+    </div>
+  </div>
+
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div>
+      <label class="etiqueta" for="fechaInicio">Fecha inicio</label>
+      <input id="fechaInicio" name="fechaInicio" type="date" class="input" value={fechaInput(proyecto?.fechaInicio)} />
+    </div>
+    <div>
+      <label class="etiqueta" for="fechaEntrega">Fecha entrega</label>
+      <input id="fechaEntrega" name="fechaEntrega" type="date" class="input" value={fechaInput(proyecto?.fechaEntrega)} />
+    </div>
+  </div>
+
+  <div>
+    <label class="etiqueta flex items-center justify-between" for="progreso">
+      <span>Progreso</span>
+      <span class="text-xs text-violeta-300 font-mono"><span id="progreso-valor">{proyecto?.progreso ?? 0}</span>%</span>
+    </label>
+    <input id="progreso" name="progreso" type="range" min="0" max="100" step="5" value={proyecto?.progreso ?? 0}
+      class="w-full accent-violeta-600" />
+  </div>
+
+  <div id="estado-formulario" class="hidden"></div>
+
+  <div class="flex items-center justify-between pt-4 border-t border-carbon-800">
+    <a href="/admin/proyectos" class="btn-fantasma">← Cancelar</a>
+    <button type="submit" class="btn-primario">
+      {modo === 'crear' ? 'Crear proyecto' : 'Guardar cambios'}
+    </button>
+  </div>
+</form>
+
+<script>
+  const form = document.getElementById('formulario-proyecto') as HTMLFormElement;
+  const estado = document.getElementById('estado-formulario') as HTMLDivElement;
+  const sliderProgreso = document.getElementById('progreso') as HTMLInputElement;
+  const valorProgreso = document.getElementById('progreso-valor') as HTMLSpanElement;
+  sliderProgreso?.addEventListener('input', () => { valorProgreso.textContent = sliderProgreso.value; });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const datos: any = Object.fromEntries(new FormData(form).entries());
+    if (!datos.fechaInicio) datos.fechaInicio = null;
+    if (!datos.fechaEntrega) datos.fechaEntrega = null;
+    if (!datos.descripcion) datos.descripcion = null;
+    if (!datos.presupuesto) datos.presupuesto = null;
+    estado.className = 'hidden';
+
+    try {
+      const res = await fetch(form.dataset.accion!, {
+        method: form.dataset.metodo!,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Error al guardar');
+      }
+      location.href = '/admin/proyectos';
+    } catch (err: any) {
+      estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
+      estado.textContent = '✗ ' + err.message;
+    }
+  });
+</script>

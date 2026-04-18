@@ -1,0 +1,25 @@
+---
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import FormularioProyecto from '../../../componentes/admin/FormularioProyecto.astro';
+import { db, esquema } from '../../../lib/db/cliente';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/proyectos');
+
+let proyecto: any = null;
+try {
+  if (import.meta.env.DATABASE_URL) {
+    const [f] = await db.select().from(esquema.proyectos).where(eq(esquema.proyectos.id, id));
+    proyecto = f;
+  }
+} catch (e) { console.error(e); }
+if (!proyecto) return Astro.redirect('/admin/proyectos');
+---
+<LayoutAdmin titulo={`Editar · ${proyecto.titulo}`}>
+  <EncabezadoSeccion titulo="Editar proyecto" descripcion={proyecto.titulo} />
+  <FormularioProyecto modo="editar" proyecto={proyecto} />
+</LayoutAdmin>
