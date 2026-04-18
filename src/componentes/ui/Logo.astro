@@ -1,6 +1,7 @@
 ---
-// Logo Kaladim — line-art a juego con iconos sidebar.
-// Outline square + K monograma + nodo en junción. Stroke 1.8, mismo lenguaje visual.
+// Logo Kaladim — K como grafo de nodos conectados.
+// Mismo lenguaje visual que el fondo de constelación: puntos + líneas finas.
+// Color via Tailwind violeta-400 → resuelve a var(--acento-*) → sigue tema.
 
 interface Props {
   tamano?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -24,19 +25,32 @@ const props = soloMarca ? {} : { href: '/', 'aria-label': 'Kaladim — inicio' }
 <Wrapper {...props} class="flex items-center gap-2.5 group">
   <svg
     viewBox="0 0 24 24"
-    class={`${m.caja} text-violeta-400 transition-transform duration-200 group-hover:scale-110 group-hover:text-violeta-300`}
+    class={`${m.caja} text-violeta-400 transition-all duration-200 group-hover:text-violeta-300 group-hover:scale-110`}
     fill="none"
-    stroke="currentColor"
-    stroke-width="1.8"
-    stroke-linecap="round"
-    stroke-linejoin="round"
     aria-hidden="true"
   >
-    <rect x="3" y="3" width="18" height="18" rx="4" />
-    <path d="M9 7 V17" />
-    <path d="M9 12 L15 7" />
-    <path d="M9 12 L15 17" />
-    <circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    <!-- Líneas (constelación) -->
+    <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.6">
+      <line x1="6"  y1="4"  x2="6"  y2="12" />
+      <line x1="6"  y1="12" x2="6"  y2="20" />
+      <line x1="6"  y1="12" x2="17" y2="4"  />
+      <line x1="6"  y1="12" x2="17" y2="20" />
+    </g>
+
+    <!-- Nodos extremos -->
+    <g fill="currentColor">
+      <circle cx="6"  cy="4"  r="1.4" />
+      <circle cx="6"  cy="20" r="1.4" />
+      <circle cx="17" cy="4"  r="1.4" />
+      <circle cx="17" cy="20" r="1.4" />
+    </g>
+
+    <!-- Nodo central (junción) — más grande + pulsante -->
+    <circle cx="6" cy="12" r="2.2" fill="currentColor" />
+    <circle cx="6" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="0.6" opacity="0.5">
+      <animate attributeName="r" values="2.5;5;2.5" dur="2.6s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.5;0;0.5" dur="2.6s" repeatCount="indefinite"/>
+    </circle>
   </svg>
 
   {mostrarTexto && (
