@@ -5,7 +5,7 @@
 import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
 import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
 import { db, esquema } from '../../../lib/db/cliente';
-import { desc, asc } from 'drizzle-orm';
+import { desc, asc, sql } from 'drizzle-orm';
 
 export const prerender = false;
 
@@ -21,29 +21,54 @@ type Idea = {
   etiquetas: string;
   proyectoId: string | null;
   creadoEn: Date | string;
+  miVoto?: boolean;
 };
 type Proy = { id: string; titulo: string };
 
+const emailActual = Astro.locals.usuario?.email ?? 'dev@kaladim.local';
+
 let ideas: Idea[] = [];
 let proyectos: Proy[] = [];
+let totalAdmins = 1;
 let errorMsg: string | null = null;
 let modoDemo = false;
 
 try {
   if (import.meta.env.DATABASE_URL) {
-    ideas = await db.select().from(esquema.ideas).orderBy(desc(esquema.ideas.creadoEn)) as any;
+    // Ideas + miVoto via LEFT JOIN
+    const filas = await db.execute<any>(sql`
+      SELECT i.*,
+        (SELECT COUNT(*)::int FROM idea_votos v WHERE v.idea_id = i.id AND v.usuario_email = ${emailActual}) > 0 AS "miVoto"
+      FROM ideas i
+      ORDER BY i.creado_en DESC
+    `);
+    ideas = ((filas.rows ?? filas) as any[]).map((r) => ({
+      id: r.id, titulo: r.titulo, descripcion: r.descripcion,
+      tipo: r.tipo, estado: r.estado,
+      impacto: r.impacto, esfuerzo: r.esfuerzo, votos: r.votos,
+      etiquetas: r.etiquetas, proyectoId: r.proyecto_id,
+      creadoEn: r.creado_en,
+      miVoto: r.miVoto === true,
+    }));
+
     proyectos = await db
       .select({ id: esquema.proyectos.id, titulo: esquema.proyectos.titulo })
       .from(esquema.proyectos)
       .orderBy(asc(esquema.proyectos.titulo)) as any;
+
+    const admCount = await db.execute<{ n: number }>(sql`
+      SELECT COUNT(*)::int AS n FROM usuarios WHERE rol IN ('admin','editor') AND activo = true
+    `);
+    totalAdmins = Math.max(1, Number((admCount.rows ?? admCount)?.[0]?.n ?? 1));
   } else {
     modoDemo = true;
     errorMsg = 'Sin DATABASE_URL — modo demo (cambios no persisten)';
+    totalAdmins = 3;
     ideas = [
-      { id: 'd1', titulo: 'Añadir modo oscuro al panel cliente', descripcion: 'Mucha gente trabaja de noche', tipo: 'feature', estado: 'idea', impacto: 4, esfuerzo: 2, votos: 3, etiquetas: '["ux","dark-mode"]', proyectoId: null, creadoEn: new Date() },
-      { id: 'd2', titulo: 'Notificaciones email al cliente cuando cambie estado proyecto', descripcion: null, tipo: 'mejora', estado: 'planificada', impacto: 5, esfuerzo: 3, votos: 7, etiquetas: '["notificaciones","email"]', proyectoId: null, creadoEn: new Date() },
-      { id: 'd3', titulo: 'Integración con WhatsApp Business', descripcion: 'Los clientes preguntan mucho por aquí', tipo: 'cliente', estado: 'considerando', impacto: 5, esfuerzo: 5, votos: 12, etiquetas: '["integración","whatsapp"]', proyectoId: null, creadoEn: new Date() },
-      { id: 'd4', titulo: 'Exportar reportes en PDF', descripcion: null, tipo: 'feature', estado: 'implementada', impacto: 3, esfuerzo: 2, votos: 5, etiquetas: '["pdf","reportes"]', proyectoId: null, creadoEn: new Date() },
+      { id: 'd1', titulo: 'Añadir modo oscuro al panel cliente', descripcion: 'Mucha gente trabaja de noche', tipo: 'feature', estado: 'idea', impacto: 4, esfuerzo: 2, votos: 1, etiquetas: '["ux","dark-mode"]', proyectoId: null, creadoEn: new Date(), miVoto: true },
+      { id: 'd2', titulo: 'Notificaciones email al cliente cuando cambie estado proyecto', descripcion: null, tipo: 'mejora', estado: 'planificada', impacto: 5, esfuerzo: 3, votos: 2, etiquetas: '["notificaciones","email"]', proyectoId: null, creadoEn: new Date(), miVoto: false },
+      { id: 'd3', titulo: 'Integración con WhatsApp Business', descripcion: 'Los clientes preguntan mucho por aquí', tipo: 'cliente', estado: 'considerando', impacto: 5, esfuerzo: 5, votos: 3, etiquetas: '["integración","whatsapp"]', proyectoId: null, creadoEn: new Date(), miVoto: false },
+      { id: 'd4', titulo: 'Exportar reportes en PDF', descripcion: null, tipo: 'feature', estado: 'implementada', impacto: 3, esfuerzo: 2, votos: 2, etiquetas: '["pdf","reportes"]', proyectoId: null, creadoEn: new Date(), miVoto: false },
     ];
     proyectos = [];
   }
@@ -274,7 +299,7 @@ const stats = {
   </div>
 </div>
 
-<script id="datos-iniciales" type="application/json" set:html={JSON.stringify({ ideas, proyectos, modoDemo })}></script>
+<script id="datos-iniciales" type="application/json" set:html={JSON.stringify({ ideas, proyectos, modoDemo, totalAdmins })}></script>
 
 <script>
   type Idea = {
@@ -283,12 +308,14 @@ const stats = {
     impacto: number; esfuerzo: number; votos: number;
     etiquetas: string; proyectoId: string | null;
     creadoEn: string | Date;
+    miVoto?: boolean;
   };
 
   const datos = JSON.parse(document.getElementById('datos-iniciales')!.textContent!);
   let ideas: Idea[] = datos.ideas;
   const proyectos: { id: string; titulo: string }[] = datos.proyectos;
   const modoDemo: boolean = datos.modoDemo;
+  let totalAdmins: number = datos.totalAdmins ?? 1;
 
   let filtroEstado = '';
   let orden: 'recientes' | 'votos' | 'impacto' | 'quickwins' = 'recientes';
@@ -334,6 +361,7 @@ const stats = {
     try { tags = JSON.parse(i.etiquetas); } catch {}
     const fecha = new Date(i.creadoEn).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 
+    const voto = i.miVoto === true;
     return `
       <article class="tarjeta-interactiva p-4 flex flex-col gap-3" data-id="${i.id}">
         <div class="flex items-start justify-between gap-2">
@@ -341,9 +369,13 @@ const stats = {
             <span class="text-lg shrink-0" title="${escHtml(i.tipo)}">${TIPOS_ICONO[i.tipo] ?? '💡'}</span>
             <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${cfg.clase}">${cfg.l}</span>
           </div>
-          <button class="btn-votar flex items-center gap-1 text-xs text-carbon-400 hover:text-violeta-300 transition" data-id="${i.id}" title="Votar">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span class="font-mono">${i.votos}</span>
+          <button class="btn-votar flex items-center gap-1.5 px-2 py-1 rounded-md border transition text-xs ${
+            voto
+              ? 'bg-violeta-500/20 border-violeta-500/50 text-violeta-200'
+              : 'bg-transparent border-carbon-700 text-carbon-400 hover:border-violeta-500/40 hover:text-violeta-300'
+          }" data-id="${i.id}" title="${voto ? 'Retirar voto' : 'Votar implementación'}">
+            <svg class="h-3.5 w-3.5 ${voto ? 'fill-current' : ''}" viewBox="0 0 24 24" fill="${voto ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 21l-1.5-1.35C5 15.36 2 12.28 2 8.5 2 5.5 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.5 22 8.5c0 3.78-3 6.86-8.5 11.15L12 21z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="font-mono tabular-nums"><span class="voto-n">${i.votos}</span><span class="text-carbon-600">/${totalAdmins}</span></span>
           </button>
         </div>
 
@@ -448,20 +480,30 @@ const stats = {
     });
   }
 
-  // ── Votar ──
+  // ── Votar (toggle, uno por usuario) ──
   async function votar(id: string) {
     const idx = ideas.findIndex((i) => i.id === id);
     if (idx < 0) return;
-    ideas[idx].votos += 1;
+    const previo = ideas[idx].miVoto === true;
+    // Optimistic
+    ideas[idx].miVoto = !previo;
+    ideas[idx].votos += previo ? -1 : 1;
     pintar();
     if (modoDemo) return;
     try {
-      await fetch(`/api/ideas/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ __votar: true }),
-      });
-    } catch {}
+      const res = await fetch(`/api/ideas/${id}/votar`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const { votos, miVoto, admins } = await res.json();
+      ideas[idx].votos = votos;
+      ideas[idx].miVoto = miVoto;
+      if (admins) totalAdmins = admins;
+      pintar();
+    } catch {
+      // revertir
+      ideas[idx].miVoto = previo;
+      ideas[idx].votos += previo ? 1 : -1;
+      pintar();
+    }
   }
 
   // ── Quick add ──

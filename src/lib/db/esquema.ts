@@ -18,7 +18,7 @@ import { relations } from 'drizzle-orm';
 
 // ─── ENUMS ──────────────────────────────────────────────────────────────
 
-export const rolUsuarioEnum = pgEnum('rol_usuario', ['admin', 'cliente']);
+export const rolUsuarioEnum = pgEnum('rol_usuario', ['admin', 'editor', 'viewer', 'cliente']);
 
 export const estadoProyectoEnum = pgEnum('estado_proyecto', [
   'borrador',
@@ -54,9 +54,14 @@ export const usuarios = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     email: varchar('email', { length: 255 }).notNull().unique(),
     nombre: varchar('nombre', { length: 120 }).notNull(),
+    nombreUsuario: varchar('nombre_usuario', { length: 60 }),
     avatarUrl: text('avatar_url'),
-    rol: rolUsuarioEnum('rol').notNull().default('cliente'),
+    telefono: varchar('telefono', { length: 40 }),
+    bio: text('bio'),
+    rol: rolUsuarioEnum('rol').notNull().default('viewer'),
+    activo: boolean('activo').notNull().default(true),
     googleId: varchar('google_id', { length: 120 }).unique(),
+    ultimoAcceso: timestamp('ultimo_acceso', { withTimezone: true }),
     creadoEn: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
     actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -273,6 +278,26 @@ export const ideas = pgTable(
   (t) => ({
     estadoIdx: index('ideas_estado_idx').on(t.estado),
     votosIdx: index('ideas_votos_idx').on(t.votos),
+  }),
+);
+
+// ─── VOTOS IDEAS (uno por admin) ────────────────────────────────────────
+
+import { uniqueIndex } from 'drizzle-orm/pg-core';
+
+export const ideaVotos = pgTable(
+  'idea_votos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ideaId: uuid('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+    usuarioEmail: varchar('usuario_email', { length: 255 }).notNull(),
+    creadoEn: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqIdeaEmail: uniqueIndex('idea_votos_unique').on(t.ideaId, t.usuarioEmail),
+    ideaIdx: index('idea_votos_idea_idx').on(t.ideaId),
   }),
 );
 

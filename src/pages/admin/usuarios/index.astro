@@ -1,7 +1,6 @@
 ---
 import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
 import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
-import TablaDatos from '../../../componentes/admin/TablaDatos.astro';
 import { db, esquema } from '../../../lib/db/cliente';
 import { desc } from 'drizzle-orm';
 
@@ -15,20 +14,239 @@ try {
   } else {
     error = 'Sin DATABASE_URL — ejemplo';
     filas = [
-      { id: 'u1', nombre: 'Admin Demo', email: 'admin@kaladim.com', rol: 'admin', creadoEn: new Date() },
+      { id: 'u1', nombre: 'Admin Demo', email: 'admin@kaladim.com', rol: 'admin', activo: true, avatarUrl: null, creadoEn: new Date() },
     ];
   }
 } catch (e) { error = e instanceof Error ? e.message : 'Error'; }
 
-const columnas = [
-  { clave: 'nombre', etiqueta: 'Nombre' },
-  { clave: 'email', etiqueta: 'Email' },
-  { clave: 'rol', etiqueta: 'Rol' },
-  { clave: 'creadoEn', etiqueta: 'Alta', formato: 'fecha' as const },
-];
+const rolUsuarioActual = Astro.locals.usuario?.rol ?? 'viewer';
+const puedeGestionar = rolUsuarioActual === 'admin';
 ---
-<LayoutAdmin titulo="Usuarios" subtitulo="Usuarios con acceso al sistema">
-  <EncabezadoSeccion titulo="Usuarios" descripcion="Gestiona roles y permisos" />
+
+<LayoutAdmin titulo="Usuarios y permisos" subtitulo="Gestión de accesos al panel">
+  <EncabezadoSeccion
+    titulo="Usuarios"
+    descripcion={puedeGestionar ? 'Invita nuevos miembros y asigna su rol. Accederán tras loguearse con Google.' : 'Solo lectura — necesitas rol admin para gestionar.'}
+  />
+
   {error && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {error}</div>}
-  <TablaDatos columnas={columnas} filas={filas} mensajeVacio="Sin usuarios." />
+
+  <!-- ═══ Leyenda roles ═══ -->
+  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="tarjeta p-4">
+      <div class="flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-violeta-500"></span>
+        <span class="text-sm font-semibold text-white">Admin</span>
+      </div>
+      <p class="text-xs text-carbon-400 mt-1">Acceso total. Gestiona usuarios, roles, todo.</p>
+    </div>
+    <div class="tarjeta p-4">
+      <div class="flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+        <span class="text-sm font-semibold text-white">Editor</span>
+      </div>
+      <p class="text-xs text-carbon-400 mt-1">Crea y edita contenido. No gestiona usuarios.</p>
+    </div>
+    <div class="tarjeta p-4">
+      <div class="flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
+        <span class="text-sm font-semibold text-white">Viewer</span>
+      </div>
+      <p class="text-xs text-carbon-400 mt-1">Solo consulta. Sin permisos de edición.</p>
+    </div>
+    <div class="tarjeta p-4">
+      <div class="flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-carbon-500"></span>
+        <span class="text-sm font-semibold text-white">Cliente</span>
+      </div>
+      <p class="text-xs text-carbon-400 mt-1">Bloqueado del panel. Sólo web pública.</p>
+    </div>
+  </div>
+
+  {puedeGestionar && (
+    <!-- ═══ Form invitar ═══ -->
+    <form id="form-invitar" class="tarjeta p-4 sm:p-6 mb-6">
+      <h3 class="text-sm font-semibold text-white mb-4">Invitar usuario</h3>
+      <div class="grid sm:grid-cols-[1fr_1fr_180px_auto] gap-3">
+        <div>
+          <label class="etiqueta" for="inv-email">Email *</label>
+          <input id="inv-email" name="email" type="email" required class="input" placeholder="persona@empresa.com" />
+        </div>
+        <div>
+          <label class="etiqueta" for="inv-nombre">Nombre *</label>
+          <input id="inv-nombre" name="nombre" required class="input" placeholder="Nombre completo" />
+        </div>
+        <div>
+          <label class="etiqueta" for="inv-rol">Rol</label>
+          <select id="inv-rol" name="rol" class="input">
+            <option value="viewer" selected>Viewer</option>
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="sm:self-end">
+          <button type="submit" class="btn-primario w-full">+ Invitar</button>
+        </div>
+      </div>
+      <p class="text-xs text-carbon-500 mt-3">El usuario podrá acceder al loguearse con Google usando este email.</p>
+    </form>
+  )}
+
+  <!-- ═══ Listado ═══ -->
+  <div class="tarjeta overflow-hidden">
+    <div class="p-3 sm:p-4 border-b border-carbon-800 flex items-center gap-2">
+      <div class="relative flex-1 sm:max-w-xs">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-carbon-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+        <input id="busqueda-usuarios" type="text" placeholder="Buscar por nombre o email..." class="input pl-9 py-2 text-sm" />
+      </div>
+      <span class="text-xs text-carbon-500 ml-auto" id="contador-usuarios">{filas.length}</span>
+    </div>
+
+    <div id="lista-usuarios" class="divide-y divide-carbon-800"></div>
+  </div>
 </LayoutAdmin>
+
+<script id="datos-usuarios" type="application/json" set:html={JSON.stringify({ usuarios: filas, puedeGestionar })}></script>
+
+<script>
+  const datos = JSON.parse(document.getElementById('datos-usuarios')!.textContent!);
+  let usuarios: any[] = datos.usuarios;
+  const puedeGestionar: boolean = datos.puedeGestionar;
+
+  const rolColor: Record<string, string> = {
+    admin: 'bg-violeta-500/15 text-violeta-300 border-violeta-500/30',
+    editor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    viewer: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    cliente: 'bg-carbon-800 text-carbon-400 border-carbon-700',
+  };
+
+  const contador = document.getElementById('contador-usuarios')!;
+  const lista = document.getElementById('lista-usuarios')!;
+  const busqueda = document.getElementById('busqueda-usuarios') as HTMLInputElement;
+
+  function escHtml(s: string): string {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function pintar() {
+    const q = busqueda.value.toLowerCase();
+    const filtrados = usuarios.filter((u) =>
+      (u.nombre + ' ' + u.email).toLowerCase().includes(q),
+    );
+    contador.textContent = `${filtrados.length} de ${usuarios.length}`;
+
+    if (filtrados.length === 0) {
+      lista.innerHTML = `<div class="p-8 text-center text-sm text-carbon-500">Sin resultados</div>`;
+      return;
+    }
+    lista.innerHTML = filtrados.map((u) => {
+      const inicial = (u.nombre?.[0] ?? u.email[0] ?? '?').toUpperCase();
+      const avatar = u.avatarUrl
+        ? `<img src="${u.avatarUrl}" alt="" class="h-10 w-10 rounded-full ring-1 ring-carbon-700"/>`
+        : `<div class="h-10 w-10 rounded-full bg-gradient-to-br from-violeta-500 to-violeta-700 grid place-items-center text-sm font-semibold text-white">${inicial}</div>`;
+      const ultimo = u.ultimoAcceso ? new Date(u.ultimoAcceso).toLocaleDateString('es-ES') : 'Nunca';
+      const activo = u.activo !== false;
+      return `
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 hover:bg-carbon-900/40 transition" data-id="${u.id}">
+          <div class="flex items-center gap-3 flex-1 min-w-0">
+            ${avatar}
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-medium text-white truncate">${escHtml(u.nombre)}</span>
+                <span class="badge ${rolColor[u.rol] ?? 'border border-carbon-700'} text-[10px]">${u.rol}</span>
+                ${!activo ? '<span class="text-[10px] text-red-400 font-mono">inactivo</span>' : ''}
+              </div>
+              <div class="text-xs text-carbon-400 truncate">${escHtml(u.email)}</div>
+              <div class="text-[10px] text-carbon-500 font-mono mt-0.5">Último acceso: ${ultimo}</div>
+            </div>
+          </div>
+          ${puedeGestionar ? `
+            <div class="flex items-center gap-2 shrink-0">
+              <select data-sel-rol="${u.id}" class="input py-1.5 text-xs" ${!activo ? 'disabled' : ''}>
+                ${['admin','editor','viewer','cliente'].map((r) => `<option value="${r}" ${u.rol === r ? 'selected' : ''}>${r}</option>`).join('')}
+              </select>
+              <button data-toggle-activo="${u.id}" class="p-2 rounded hover:bg-carbon-800 text-carbon-400 hover:text-white" title="${activo ? 'Desactivar' : 'Activar'}">
+                ${activo
+                  ? '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64A9 9 0 1119 12" stroke-linecap="round"/><line x1="12" y1="2" x2="12" y2="12" stroke-linecap="round"/></svg>'
+                  : '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>'}
+              </button>
+              <button data-eliminar="${u.id}" class="p-2 rounded hover:bg-red-500/10 text-carbon-400 hover:text-red-400" title="Eliminar">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6M5 6l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          ` : ''}
+        </div>`;
+    }).join('');
+
+    // Bind eventos
+    lista.querySelectorAll<HTMLSelectElement>('[data-sel-rol]').forEach((s) => {
+      s.addEventListener('change', async () => {
+        const id = s.dataset.selRol!;
+        await actualizar(id, { rol: s.value });
+      });
+    });
+    lista.querySelectorAll<HTMLButtonElement>('[data-toggle-activo]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const id = b.dataset.toggleActivo!;
+        const u = usuarios.find((x) => x.id === id);
+        if (!u) return;
+        await actualizar(id, { activo: !(u.activo !== false) });
+      });
+    });
+    lista.querySelectorAll<HTMLButtonElement>('[data-eliminar]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const id = b.dataset.eliminar!;
+        if (!confirm('¿Eliminar usuario? Perderá acceso al panel.')) return;
+        await eliminar(id);
+      });
+    });
+  }
+
+  async function actualizar(id: string, datos: any) {
+    try {
+      const res = await fetch(`/api/usuarios/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) throw new Error();
+      const act = await res.json();
+      usuarios = usuarios.map((u) => u.id === id ? act : u);
+      pintar();
+    } catch { alert('Error al actualizar'); }
+  }
+
+  async function eliminar(id: string) {
+    try {
+      const res = await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      usuarios = usuarios.filter((u) => u.id !== id);
+      pintar();
+    } catch { alert('Error al eliminar'); }
+  }
+
+  // Form invitar
+  const formInv = document.getElementById('form-invitar') as HTMLFormElement | null;
+  formInv?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const datos = Object.fromEntries(new FormData(formInv).entries());
+    try {
+      const res = await fetch('/api/usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) throw new Error();
+      const u = await res.json();
+      // Si ya existía, reemplazar; si no, añadir al inicio
+      const idx = usuarios.findIndex((x) => x.email === u.email);
+      if (idx >= 0) usuarios[idx] = u;
+      else usuarios.unshift(u);
+      formInv.reset();
+      pintar();
+    } catch { alert('Error al invitar'); }
+  });
+
+  busqueda.addEventListener('input', pintar);
+  pintar();
+</script>

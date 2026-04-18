@@ -1,0 +1,134 @@
+---
+import LayoutAdmin from '../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../componentes/admin/EncabezadoSeccion.astro';
+import { db, esquema } from '../../lib/db/cliente';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+
+const usuario = Astro.locals.usuario;
+const email = usuario?.email ?? '';
+
+let datos: any = {
+  email, nombre: usuario?.name ?? '', nombreUsuario: null,
+  telefono: null, bio: null, avatarUrl: usuario?.image ?? null,
+  rol: usuario?.rol ?? 'viewer', creadoEn: null, ultimoAcceso: null,
+};
+
+try {
+  if (import.meta.env.DATABASE_URL && email) {
+    const [u] = await db.select().from(esquema.usuarios).where(eq(esquema.usuarios.email, email));
+    if (u) datos = u;
+  }
+} catch (e) { console.error('[perfil]', e); }
+
+const rolLabels: Record<string, string> = {
+  admin: 'Administrador · acceso total',
+  editor: 'Editor · crea y edita',
+  viewer: 'Lector · solo ver',
+  cliente: 'Cliente',
+};
+---
+
+<LayoutAdmin titulo="Mi perfil" subtitulo="Tus datos y preferencias">
+  <EncabezadoSeccion titulo="Perfil" descripcion="Actualiza tus datos personales. Solo tú puedes verlos y editarlos." />
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_2fr]">
+    <!-- Tarjeta resumen -->
+    <aside class="tarjeta p-6 h-fit">
+      <div class="flex flex-col items-center text-center">
+        {datos.avatarUrl
+          ? <img src={datos.avatarUrl} alt={datos.nombre} class="h-24 w-24 rounded-full ring-2 ring-violeta-500/30" />
+          : <div class="h-24 w-24 rounded-full bg-gradient-to-br from-violeta-500 to-violeta-700 grid place-items-center text-3xl font-display font-bold text-white ring-2 ring-violeta-500/30">{(datos.nombre?.[0] ?? 'U').toUpperCase()}</div>
+        }
+        <h3 class="mt-4 text-lg font-display font-semibold text-white">{datos.nombre}</h3>
+        <p class="text-xs text-carbon-400">{datos.email}</p>
+        <span class="mt-3 badge-info text-[10px]">{rolLabels[datos.rol] ?? datos.rol}</span>
+      </div>
+      <div class="mt-6 pt-6 border-t border-carbon-800 space-y-3 text-xs">
+        <div class="flex justify-between">
+          <span class="text-carbon-500 uppercase tracking-wider">Alta</span>
+          <span class="text-carbon-200 font-mono">{datos.creadoEn ? new Date(datos.creadoEn).toLocaleDateString('es-ES') : '—'}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-carbon-500 uppercase tracking-wider">Último acceso</span>
+          <span class="text-carbon-200 font-mono">{datos.ultimoAcceso ? new Date(datos.ultimoAcceso).toLocaleDateString('es-ES') : '—'}</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Formulario editar -->
+    <form id="form-perfil" class="tarjeta p-6 space-y-5">
+      <h3 class="text-sm font-semibold text-white">Datos personales</h3>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="etiqueta" for="nombre">Nombre completo</label>
+          <input id="nombre" name="nombre" class="input" maxlength="120" value={datos.nombre ?? ''} />
+        </div>
+        <div>
+          <label class="etiqueta" for="nombreUsuario">Nombre de usuario</label>
+          <input id="nombreUsuario" name="nombreUsuario" class="input font-mono text-sm" maxlength="60" value={datos.nombreUsuario ?? ''} placeholder="@moestilos" />
+        </div>
+      </div>
+
+      <div>
+        <label class="etiqueta" for="email">Email (no editable)</label>
+        <input id="email" class="input opacity-60 cursor-not-allowed" value={datos.email} disabled readonly />
+      </div>
+
+      <div>
+        <label class="etiqueta" for="telefono">Teléfono</label>
+        <input id="telefono" name="telefono" type="tel" class="input" maxlength="40" value={datos.telefono ?? ''} placeholder="+34 600 000 000" />
+      </div>
+
+      <div>
+        <label class="etiqueta" for="avatarUrl">Avatar (URL imagen)</label>
+        <input id="avatarUrl" name="avatarUrl" type="url" class="input" maxlength="500" value={datos.avatarUrl ?? ''} placeholder="https://..." />
+      </div>
+
+      <div>
+        <label class="etiqueta" for="bio">Biografía</label>
+        <textarea id="bio" name="bio" rows="4" class="input resize-none" maxlength="500" placeholder="Cuéntale al equipo quién eres, qué haces...">{datos.bio ?? ''}</textarea>
+        <p class="text-[10px] text-carbon-500 mt-1"><span id="contador-bio">{datos.bio?.length ?? 0}</span> / 500</p>
+      </div>
+
+      <div id="estado-perfil" class="hidden"></div>
+
+      <div class="flex justify-end pt-4 border-t border-carbon-800">
+        <button type="submit" class="btn-primario">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</LayoutAdmin>
+
+<script>
+  const form = document.getElementById('form-perfil') as HTMLFormElement;
+  const estado = document.getElementById('estado-perfil') as HTMLDivElement;
+  const bioInput = document.getElementById('bio') as HTMLTextAreaElement;
+  const contadorBio = document.getElementById('contador-bio') as HTMLSpanElement;
+  bioInput?.addEventListener('input', () => { contadorBio.textContent = String(bioInput.value.length); });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const datos: any = Object.fromEntries(new FormData(form).entries());
+    ['telefono','bio','avatarUrl','nombreUsuario'].forEach((k) => { if (!datos[k]) datos[k] = null; });
+    estado.className = 'hidden';
+    try {
+      const res = await fetch('/api/perfil', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || 'Error');
+      }
+      estado.className = 'rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 text-sm';
+      estado.textContent = '✓ Perfil actualizado';
+    } catch (err: any) {
+      estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
+      estado.textContent = '✗ ' + err.message;
+    }
+  });
+</script>

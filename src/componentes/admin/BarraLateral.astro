@@ -20,7 +20,8 @@ const items = [
   { href: '/admin/kanban', icono: 'tablero', etiqueta: 'Kanban' },
   { href: '/admin/ideas',  icono: 'bombilla', etiqueta: 'Ideario' },
   { href: '/admin/automatizaciones', icono: 'rayo', etiqueta: 'Automatizaciones' },
-  { href: '/admin/usuarios', icono: 'escudo', etiqueta: 'Usuarios' },
+  { href: '/admin/usuarios', icono: 'escudo', etiqueta: 'Usuarios y roles' },
+  { href: '/admin/perfil', icono: 'perfil', etiqueta: 'Mi perfil' },
   { href: '/admin/leads', icono: 'bandeja', etiqueta: 'Leads' },
 ];
 
@@ -110,6 +111,11 @@ function activo(href: string) {
                   <path d="M12 2l8 3v7c0 5-4 9-8 10-4-1-8-5-8-10V5l8-3z"/>
                 </svg>
               )}
+              {i.icono === 'perfil' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+                  <circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke-linecap="round"/>
+                </svg>
+              )}
               {i.icono === 'bandeja' && (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
                   <path d="M3 13l2-8h14l2 8M3 13v7h18v-7M3 13h6l2 2h2l2-2h6"/>
@@ -124,7 +130,7 @@ function activo(href: string) {
   </nav>
 
   <div class="p-3 border-t border-carbon-800">
-    <div class="flex items-center gap-3 px-2 py-2">
+    <a href="/admin/perfil" class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-carbon-900 transition-colors" title="Ir a mi perfil">
       {usuario?.image ? (
         <img src={usuario.image} alt="" class="h-8 w-8 rounded-full" />
       ) : (
@@ -136,7 +142,7 @@ function activo(href: string) {
         <div class="text-sm text-white truncate">{usuario?.name ?? 'Admin'}</div>
         <div class="text-xs text-carbon-500 truncate">{usuario?.email ?? ''}</div>
       </div>
-    </div>
+    </a>
     <button
       id="boton-salir"
       class="w-full mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-carbon-400 hover:text-white hover:bg-carbon-900 transition"
