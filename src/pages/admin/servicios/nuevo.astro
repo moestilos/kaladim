@@ -1,0 +1,10 @@
+---
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import FormularioServicio from '../../../componentes/admin/FormularioServicio.astro';
+export const prerender = false;
+---
+<LayoutAdmin titulo="Nuevo servicio">
+  <EncabezadoSeccion titulo="Nuevo servicio" descripcion="Vincular a un proyecto existente" />
+  <FormularioServicio modo="crear" />
+</LayoutAdmin>

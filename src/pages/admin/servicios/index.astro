@@ -16,10 +16,24 @@ try {
     error = 'Sin DATABASE_URL — ejemplo';
     filas = [
       { id: 's1', nombre: 'Web corporativa completa', tipo: 'web_corporativa', precio: '4500.00', recurrente: false },
-      { id: 's2', nombre: 'Mantenimiento mensual', tipo: 'mantenimiento', precio: '250.00', recurrente: true },
     ];
   }
 } catch (e) { error = e instanceof Error ? e.message : 'Error'; }
+
+const etiquetasTipo: Record<string, string> = {
+  web_landing: 'Landing',
+  web_corporativa: 'Web corporativa',
+  web_ecommerce: 'E-commerce',
+  automatizacion_n8n: 'Automatización n8n',
+  integracion_api: 'Integración API',
+  mantenimiento: 'Mantenimiento',
+  consultoria: 'Consultoría',
+};
+const filasFormateadas = filas.map((f) => ({
+  ...f,
+  tipo: etiquetasTipo[f.tipo] ?? f.tipo,
+  recurrente: f.recurrente ? `Sí · ${f.periodoMeses ?? '—'} meses` : 'No',
+}));
 
 const columnas = [
   { clave: 'nombre', etiqueta: 'Servicio' },
@@ -29,7 +43,19 @@ const columnas = [
 ];
 ---
 <LayoutAdmin titulo="Servicios contratados">
-  <EncabezadoSeccion titulo="Servicios" descripcion="Servicios vinculados a proyectos" hrefNuevo="/admin/servicios/nuevo" textoNuevo="Nuevo servicio" />
+  <EncabezadoSeccion
+    titulo="Servicios"
+    descripcion="Líneas de servicio vinculadas a proyectos"
+    hrefNuevo="/admin/servicios/nuevo"
+    textoNuevo="Nuevo servicio"
+  />
   {error && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {error}</div>}
-  <TablaDatos columnas={columnas} filas={filas} mensajeVacio="Sin servicios todavía." />
+  <TablaDatos
+    columnas={columnas}
+    filas={filasFormateadas}
+    rutaEditar={(f) => `/admin/servicios/${f.id}`}
+    rutaEliminar="/api/servicios"
+    mensajeVacio="Sin servicios. Crea el primero."
+    placeholderBusqueda="Buscar por nombre, tipo..."
+  />
 </LayoutAdmin>

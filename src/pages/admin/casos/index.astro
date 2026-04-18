@@ -29,12 +29,12 @@ const columnas = [
   { clave: 'activo', etiqueta: 'Activo' },
 ];
 ---
-<LayoutAdmin titulo="Casos de estudio" subtitulo="Portfolio visible en la landing">
+<LayoutAdmin titulo="Apps lanzadas" subtitulo="Portfolio visible en la landing">
   <EncabezadoSeccion
-    titulo="Casos de estudio"
-    descripcion={`${filas.length} proyectos · visibles en /#casos de la web`}
+    titulo="Apps lanzadas"
+    descripcion={`${filas.length} apps · visibles en /#casos de la web`}
     hrefNuevo="/admin/casos/nuevo"
-    textoNuevo="Nuevo caso"
+    textoNuevo="Nueva app"
   />
   {error && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {error}</div>}
   <TablaDatos
@@ -42,7 +42,7 @@ const columnas = [
     filas={filas}
     rutaEditar={(f) => `/admin/casos/${f.id}`}
     rutaEliminar="/api/casos"
-    mensajeVacio="Sin casos de estudio. Añade el primero para empezar a llenar tu portfolio."
+    mensajeVacio="Sin apps todavía. Añade la primera para empezar a llenar tu portfolio."
     placeholderBusqueda="Buscar por título, slug, categoría..."
   />
 </LayoutAdmin>
