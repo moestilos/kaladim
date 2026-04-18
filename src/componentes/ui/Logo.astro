@@ -1,16 +1,14 @@
 ---
-// Logo Kaladim v2 — glifo geométrico "K" de cuñas con acento pulsante.
-// Concepto: columna vertical (estructura) + 2 cuñas triangulares rellenas
-// que proyectan hacia fuera (expansión/crecimiento) + punto acento al vértice.
-// Depth via capas con gradiente + highlight cristalino.
+// Logo Kaladim — minimalista profesional.
+// Fijo en violeta (#7C3AED) como identidad de marca — no cambia con el tema.
+// Mismo glifo exacto que el favicon pa' consistencia visual total.
 
 interface Props {
   tamano?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   mostrarTexto?: boolean;
   soloMarca?: boolean;
-  invertido?: boolean;
 }
-const { tamano = 'md', mostrarTexto = true, soloMarca = false, invertido = false } = Astro.props;
+const { tamano = 'md', mostrarTexto = true, soloMarca = false } = Astro.props;
 
 const medidas = {
   xs: { caja: 'h-6 w-6',  texto: 'text-sm'   },
@@ -25,90 +23,28 @@ const props = soloMarca ? {} : { href: '/', 'aria-label': 'Kaladim — inicio' }
 ---
 
 <Wrapper {...props} class="flex items-center gap-2.5 group">
-  <!-- Contenedor -->
-  <div class={`${m.caja} relative grid place-items-center shrink-0 ${
-    invertido
-      ? 'rounded-[30%] bg-white'
-      : 'rounded-[30%] bg-gradient-to-br from-violeta-400 via-violeta-600 to-violeta-900'
-  } shadow-lg shadow-violeta-600/50 transition-all duration-300 group-hover:scale-[1.08] group-hover:rotate-[-3deg]`}>
-
-    <!-- Highlight cristalino -->
-    {!invertido && (
-      <>
-        <span class="absolute inset-0 rounded-[30%] bg-gradient-to-br from-white/30 via-white/5 to-transparent pointer-events-none"></span>
-        <span class="absolute inset-x-0 top-0 h-1/2 rounded-t-[30%] bg-gradient-to-b from-white/20 to-transparent pointer-events-none"></span>
-      </>
-    )}
-
-    <!-- SVG glifo -->
-    <svg viewBox="0 0 64 64" class="h-[68%] w-[68%] relative" aria-hidden="true">
-      <defs>
-        <linearGradient id="kld-bar-v2" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"  stop-color="#ffffff" stop-opacity="1"/>
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.82"/>
-        </linearGradient>
-        <linearGradient id="kld-wedge-top" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"  stop-color="#ffffff" stop-opacity="0.95"/>
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.6"/>
-        </linearGradient>
-        <linearGradient id="kld-wedge-bot" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"  stop-color="#ffffff" stop-opacity="0.9"/>
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.45"/>
-        </linearGradient>
-      </defs>
-
-      <g fill={invertido ? 'rgb(var(--acento-600))' : undefined}>
-        <!-- Columna vertical (bar sólido) -->
-        <rect
-          x="12" y="10" width="11" height="44" rx="2.5"
-          fill={invertido ? 'currentColor' : 'url(#kld-bar-v2)'}
-        />
-
-        <!-- Cuña superior: triángulo plano desde junción → esquina sup-dcha -->
-        <path
-          d="M 23 32 L 50 10 Q 54 10 54 14 L 30 34 Z"
-          fill={invertido ? 'currentColor' : 'url(#kld-wedge-top)'}
-        />
-
-        <!-- Cuña inferior: triángulo plano desde junción → esquina inf-dcha -->
-        <path
-          d="M 23 32 L 50 54 Q 54 54 54 50 L 30 30 Z"
-          fill={invertido ? 'currentColor' : 'url(#kld-wedge-bot)'}
-        />
-
-        <!-- Nodo de junción con halo pulsante -->
-        <circle
-          cx="23" cy="32" r="4.5"
-          fill={invertido ? 'currentColor' : '#ffffff'}
-        />
-      </g>
-
-      <!-- Halo animado nodo -->
-      <circle cx="23" cy="32" r="6" fill="none"
-        stroke={invertido ? 'rgb(var(--acento-600))' : '#ffffff'}
-        stroke-width="1" opacity="0.5">
-        <animate attributeName="r" values="5;9;5" dur="2.6s" repeatCount="indefinite"/>
-        <animate attributeName="opacity" values="0.5;0;0.5" dur="2.6s" repeatCount="indefinite"/>
-      </circle>
-
-      <!-- Punto acento color tema en la esquina sup-dcha (firma de marca) -->
-      {!invertido && (
-        <circle cx="52" cy="12" r="2.2" fill="rgb(var(--acento-300))">
-          <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/>
-        </circle>
-      )}
+  <!-- Marca (color fijo brand) -->
+  <span
+    class={`${m.caja} relative grid place-items-center shrink-0 rounded-lg transition-transform duration-200 group-hover:scale-105`}
+    style="background: #7C3AED;"
+  >
+    <svg viewBox="0 0 32 32" class="h-full w-full" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#7C3AED"/>
+      <path
+        d="M11.5 8 V24 M11.5 16 L20 8 M11.5 16 L20 24"
+        stroke="#ffffff"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"
+      />
     </svg>
-
-    <!-- Glow externo -->
-    {!invertido && (
-      <span class="absolute inset-0 rounded-[30%] blur-xl opacity-60 bg-gradient-to-br from-violeta-400 to-violeta-700 -z-10"></span>
-    )}
-  </div>
+  </span>
 
   <!-- Wordmark -->
   {mostrarTexto && (
-    <span class={`${m.texto} font-display font-bold tracking-[-0.035em] text-white leading-none`}>
-      Kaladim<span class="inline-block ml-0.5 w-1 h-1 rounded-full bg-violeta-400 align-baseline"></span>
+    <span class={`${m.texto} font-display font-semibold tracking-[-0.02em] text-white leading-none`}>
+      Kaladim
     </span>
   )}
 </Wrapper>
