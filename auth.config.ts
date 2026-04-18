@@ -7,10 +7,15 @@ import { defineConfig } from 'auth-astro';
 import { db, esquema } from './src/lib/db/cliente';
 import { eq, sql } from 'drizzle-orm';
 
-const emailsAdminSemilla = (import.meta.env.ADMIN_EMAILS || process.env.ADMIN_EMAILS || '')
-  .split(',')
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
+const SUPER_ADMINS = ['gmateosoficial@gmail.com'];
+
+const emailsAdminSemilla = [
+  ...SUPER_ADMINS,
+  ...(import.meta.env.ADMIN_EMAILS || process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+];
 
 async function upsertUsuario(email: string, nombre: string, avatar: string | null): Promise<string> {
   if (!import.meta.env.DATABASE_URL && !process.env.DATABASE_URL) {

@@ -1,5 +1,5 @@
 // GET  /api/perfil → datos del usuario autenticado
-// PATCH /api/perfil → actualizar propio perfil
+// PATCH /api/perfil → actualiza / crea fila perfil
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
@@ -13,7 +13,7 @@ const esquemaPerfil = z.object({
   nombreUsuario: z.preprocess((v) => (v === '' ? null : v), z.string().min(2).max(60).nullable().optional()),
   telefono: z.preprocess((v) => (v === '' ? null : v), z.string().max(40).nullable().optional()),
   bio: z.preprocess((v) => (v === '' ? null : v), z.string().max(500).nullable().optional()),
-  avatarUrl: z.preprocess((v) => (v === '' ? null : v), z.string().url().max(500).nullable().optional()),
+  avatarUrl: z.preprocess((v) => (v === '' ? null : v), z.string().url().max(1000).nullable().optional()),
 });
 
 export const GET: APIRoute = async ({ request }) => {
@@ -29,6 +29,22 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
     const datos = esquemaPerfil.parse(body);
+
+    const [existente] = await db.select().from(esquema.usuarios).where(eq(esquema.usuarios.email, auth.email));
+    if (!existente) {
+      // Crear fila si no existe aún
+      const [creado] = await db.insert(esquema.usuarios).values({
+        email: auth.email,
+        nombre: datos.nombre ?? auth.nombre ?? auth.email,
+        nombreUsuario: datos.nombreUsuario ?? null,
+        telefono: datos.telefono ?? null,
+        bio: datos.bio ?? null,
+        avatarUrl: datos.avatarUrl ?? null,
+        rol: auth.rol as any,
+      }).returning();
+      return Response.json(creado);
+    }
+
     const [act] = await db.update(esquema.usuarios)
       .set({ ...datos, actualizadoEn: new Date() } as any)
       .where(eq(esquema.usuarios.email, auth.email))
@@ -37,6 +53,6 @@ export const PATCH: APIRoute = async ({ request }) => {
   } catch (e) {
     if (e instanceof z.ZodError) return Response.json({ error: 'validacion', detalles: e.errors }, { status: 400 });
     console.error('[PATCH /api/perfil]', e);
-    return Response.json({ error: 'servidor' }, { status: 500 });
+    return Response.json({ error: 'servidor', mensaje: (e as Error).message }, { status: 500 });
   }
 };

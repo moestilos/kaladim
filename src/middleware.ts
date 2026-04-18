@@ -3,8 +3,43 @@
 import { defineMiddleware, sequence } from 'astro:middleware';
 import { Auth } from '@auth/core';
 import { getSession } from 'auth-astro/server';
+import { eq } from 'drizzle-orm';
 import authConfig from '../auth.config';
+import { db, esquema } from './lib/db/cliente';
 import { hashearIp, obtenerIp, esBot, registrarVisitaAsync } from './lib/utilidades/analiticas';
+
+const SUPER_ADMINS = ['gmateosoficial@gmail.com'];
+
+async function garantizarUsuarioEnDb(email: string, nombre: string, avatarUrl: string | null): Promise<string> {
+  if (!import.meta.env.DATABASE_URL && !process.env.DATABASE_URL) return 'admin';
+  const esSuperAdmin = SUPER_ADMINS.includes(email.toLowerCase());
+  try {
+    const [existente] = await db.select().from(esquema.usuarios).where(eq(esquema.usuarios.email, email));
+    if (existente) {
+      // Si es superadmin pero su rol en DB no es admin → corregir
+      if (esSuperAdmin && existente.rol !== 'admin') {
+        await db.update(esquema.usuarios)
+          .set({ rol: 'admin', activo: true, ultimoAcceso: new Date() })
+          .where(eq(esquema.usuarios.email, email));
+        return 'admin';
+      }
+      // Actualizar último acceso
+      await db.update(esquema.usuarios)
+        .set({ ultimoAcceso: new Date() })
+        .where(eq(esquema.usuarios.email, email));
+      return existente.rol;
+    }
+    // No existe — crear. Superadmin o primer usuario → admin, resto viewer
+    const rol = esSuperAdmin ? 'admin' : 'viewer';
+    await db.insert(esquema.usuarios).values({
+      email, nombre, avatarUrl, rol: rol as any, ultimoAcceso: new Date(),
+    });
+    return rol;
+  } catch (e) {
+    console.error('[middleware upsert]', (e as Error).message);
+    return esSuperAdmin ? 'admin' : 'viewer';
+  }
+}
 
 const EXCLUIR_TRACKING = /^\/(admin|api|_astro|_image|_server-islands|favicon|sin-acceso|entrar)/i;
 
@@ -77,13 +112,22 @@ const middlewareApp = defineMiddleware(async (context, next) => {
   if (!sesion?.user) {
     return context.redirect('/entrar?volver=' + encodeURIComponent(url.pathname));
   }
-  // @ts-expect-error
-  const rol = sesion.user.rol;
-  if (rol !== 'admin') return context.redirect('/sin-acceso');
+
+  // Upsert + cargar rol desde DB (sobreescribe rol del token)
+  const email = sesion.user.email ?? '';
+  const nombre = sesion.user.name ?? email;
+  const rolDb = await garantizarUsuarioEnDb(email, nombre, sesion.user.image ?? null);
+
+  if (rolDb === 'cliente') return context.redirect('/sin-acceso');
 
   context.locals.sesion = sesion;
-  // @ts-expect-error
-  context.locals.usuario = sesion.user;
+  context.locals.usuario = {
+    id: (sesion.user as any).id,
+    email,
+    name: nombre,
+    image: sesion.user.image ?? null,
+    rol: rolDb as any,
+  };
   return next();
 });
 
