@@ -52,7 +52,7 @@ const formatoNum = new Intl.NumberFormat('es-ES');
 const positivo = (resumen?.vsAnterior ?? 0) >= 0;
 ---
 
-<section class="tarjeta p-6">
+<section class="tarjeta p-4 sm:p-6">
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
     <div>
@@ -75,7 +75,7 @@ const positivo = (resumen?.vsAnterior ?? 0) >= 0;
   {resumen && (
     <>
       <!-- Métricas top -->
-      <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
         <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
           <div class="text-[10px] uppercase tracking-wider text-carbon-500">Total visitas</div>
           <div class="mt-1 flex items-baseline gap-2">

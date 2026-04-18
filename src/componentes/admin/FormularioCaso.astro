@@ -109,7 +109,7 @@ const grafica = parse<number[]>(caso?.grafica, []);
   <div class="tarjeta p-6">
     <h3 class="text-sm font-semibold text-white mb-1">Gráfica (sparkline)</h3>
     <p class="text-xs text-carbon-500 mb-4">16 valores entre 0 y 100. Mueve los sliders para dibujar la tendencia.</p>
-    <div id="sliders-grafica" class="grid grid-cols-16 gap-1 h-32 items-end"></div>
+    <div id="sliders-grafica" class="grid grid-cols-16 gap-0.5 sm:gap-1 h-28 sm:h-32 items-end"></div>
     <div class="mt-3 flex justify-between text-[10px] font-mono text-carbon-500">
       <span>día 1</span><span>día 16</span>
     </div>
@@ -236,21 +236,37 @@ const grafica = parse<number[]>(caso?.grafica, []);
     `).join('');
     hidGr.value = JSON.stringify(grState);
   }
-  // Drag vertical: mouse/touch
+  // Drag vertical: mouse + touch
   let arrastrando = -1;
-  contSl.addEventListener('mousedown', (e) => {
+  function dragStart(e) {
     const btn = e.target.closest('button[data-i]');
     if (btn) { arrastrando = Number(btn.dataset.i); e.preventDefault(); }
-  });
-  window.addEventListener('mouseup', () => { arrastrando = -1; });
-  window.addEventListener('mousemove', (e) => {
+  }
+  function dragMove(clientY) {
     if (arrastrando < 0) return;
     const rect = contSl.getBoundingClientRect();
-    const y = e.clientY - rect.top;
+    const y = clientY - rect.top;
     const v = Math.max(0, Math.min(100, Math.round(100 - (y / rect.height) * 100)));
     grState[arrastrando] = v;
     pintarSliders();
-  });
+  }
+  contSl.addEventListener('mousedown', dragStart);
+  window.addEventListener('mouseup', () => { arrastrando = -1; });
+  window.addEventListener('mousemove', (e) => dragMove(e.clientY));
+  // Touch support móvil
+  contSl.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const btn = el?.closest('button[data-i]');
+    if (btn) { arrastrando = Number(btn.dataset.i); e.preventDefault(); }
+  }, { passive: false });
+  window.addEventListener('touchmove', (e) => {
+    if (arrastrando >= 0 && e.touches[0]) {
+      e.preventDefault();
+      dragMove(e.touches[0].clientY);
+    }
+  }, { passive: false });
+  window.addEventListener('touchend', () => { arrastrando = -1; });
   pintarSliders();
 
   // Presets

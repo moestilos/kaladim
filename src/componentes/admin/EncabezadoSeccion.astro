@@ -7,13 +7,13 @@ interface Props {
 }
 const { titulo, descripcion, hrefNuevo, textoNuevo = 'Nuevo' } = Astro.props;
 ---
-<div class="flex items-start justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-display font-bold text-white">{titulo}</h1>
+<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+  <div class="min-w-0">
+    <h1 class="text-xl sm:text-2xl font-display font-bold text-white">{titulo}</h1>
     {descripcion && <p class="text-sm text-carbon-400 mt-1">{descripcion}</p>}
   </div>
   {hrefNuevo && (
-    <a href={hrefNuevo} class="btn-primario">
+    <a href={hrefNuevo} class="btn-primario text-sm sm:text-base shrink-0 w-full sm:w-auto">
       <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
       </svg>

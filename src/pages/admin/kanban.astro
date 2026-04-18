@@ -98,7 +98,7 @@ try {
   </div>
 
   <!-- Tablero (renderizado por JS) -->
-  <div id="tablero" class="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 lg:-mx-8 lg:px-8 min-h-[60vh]"></div>
+  <div id="tablero" class="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 min-h-[60vh] snap-x snap-mandatory lg:snap-none"></div>
 </LayoutAdmin>
 
 <!-- ═══════ MODAL TARJETA ═══════ -->
@@ -227,12 +227,12 @@ try {
         draggable="true"
         data-tarjeta-id="${t.id}"
         data-columna-id="${t.columnaId}"
-        class="tarjeta-kanban group cursor-grab active:cursor-grabbing p-3 rounded-lg border border-carbon-800 bg-carbon-950/80 hover:border-violeta-500/40 hover:bg-carbon-900 transition-all"
+        class="tarjeta-kanban group lg:cursor-grab lg:active:cursor-grabbing p-3 rounded-lg border border-carbon-800 bg-carbon-950/80 hover:border-violeta-500/40 hover:bg-carbon-900 transition-all"
       >
         <div class="flex items-start justify-between gap-2 mb-1.5">
           <div class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${prioClase}">${t.prioridad}</div>
-          <button type="button" class="btn-editar opacity-0 group-hover:opacity-100 transition text-carbon-500 hover:text-white" data-id="${t.id}">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <button type="button" class="btn-editar lg:opacity-0 lg:group-hover:opacity-100 transition text-carbon-400 hover:text-white p-1 -m-1" data-id="${t.id}" aria-label="Editar">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
         <h4 class="text-sm font-medium text-white leading-snug">${escHtml(t.titulo)}</h4>
@@ -249,6 +249,23 @@ try {
           </span>` : ''}
           ${t.asignadoEmail ? `<span class="h-5 w-5 rounded-full bg-violeta-600 grid place-items-center text-[10px] font-semibold text-white" title="${escHtml(t.asignadoEmail)}">${t.asignadoEmail[0].toUpperCase()}</span>` : ''}
         </div>` : ''}
+        <!-- Controles táctiles — visibles solo <lg (mobile/tablet) porque DnD HTML5 no va touch -->
+        <div class="lg:hidden mt-2.5 pt-2 border-t border-carbon-800/60 flex items-center justify-between gap-1">
+          <div class="flex gap-1">
+            <button type="button" class="btn-mover h-7 w-7 grid place-items-center rounded hover:bg-carbon-800 text-carbon-400 active:text-white" data-id="${t.id}" data-accion="izq" aria-label="Columna anterior">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" class="btn-mover h-7 w-7 grid place-items-center rounded hover:bg-carbon-800 text-carbon-400 active:text-white" data-id="${t.id}" data-accion="arriba" aria-label="Subir">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 15l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" class="btn-mover h-7 w-7 grid place-items-center rounded hover:bg-carbon-800 text-carbon-400 active:text-white" data-id="${t.id}" data-accion="abajo" aria-label="Bajar">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" class="btn-mover h-7 w-7 grid place-items-center rounded hover:bg-carbon-800 text-carbon-400 active:text-white" data-id="${t.id}" data-accion="dcha" aria-label="Columna siguiente">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
       </article>
     `;
   }
@@ -256,7 +273,7 @@ try {
   function renderColumna(col: Col): string {
     const ts = tarjetasVisibles(col.id);
     return `
-      <div class="columna shrink-0 w-[300px] sm:w-[320px] rounded-xl border border-carbon-800 bg-carbon-900/50 backdrop-blur flex flex-col max-h-[calc(100vh-240px)]" data-columna-id="${col.id}">
+      <div class="columna shrink-0 w-[calc(100vw-3rem)] max-w-[320px] sm:w-[300px] rounded-xl border border-carbon-800 bg-carbon-900/50 backdrop-blur flex flex-col max-h-[calc(100vh-220px)] snap-start" data-columna-id="${col.id}">
         <div class="flex items-center justify-between px-4 py-3 border-b border-carbon-800">
           <div class="flex items-center gap-2 flex-1 min-w-0">
             <span class="h-2.5 w-2.5 rounded-full ${coloresColumna[col.color] ?? 'bg-carbon-600'}"></span>
@@ -333,6 +350,13 @@ try {
     tablero.querySelectorAll<HTMLButtonElement>('.btn-editar').forEach((b) => {
       b.addEventListener('click', (e) => { e.stopPropagation(); abrirModal(b.dataset.id!); });
     });
+    // Mover tarjetas (controles táctiles móvil)
+    tablero.querySelectorAll<HTMLButtonElement>('.btn-mover').forEach((b) => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moverTarjeta(b.dataset.id!, b.dataset.accion as 'izq'|'dcha'|'arriba'|'abajo');
+      });
+    });
     tablero.querySelectorAll<HTMLButtonElement>('.btn-anadir').forEach((b) => {
       b.addEventListener('click', () => abrirModal(null, b.dataset.columnaId!));
     });
@@ -351,6 +375,60 @@ try {
       if (offset < 0 && offset > cerca.offset) return { offset, el: hijo };
       return cerca;
     }, { offset: Number.NEGATIVE_INFINITY, el: null }).el;
+  }
+
+  // Mover tarjeta con botones táctiles (móvil)
+  async function moverTarjeta(id: string, accion: 'izq'|'dcha'|'arriba'|'abajo') {
+    const t = tarjetas.find((x) => x.id === id);
+    if (!t) return;
+    const cols = [...columnas].sort((a, b) => a.orden - b.orden);
+    const idxCol = cols.findIndex((c) => c.id === t.columnaId);
+    const tsCol = tarjetas.filter((x) => x.columnaId === t.columnaId).sort((a, b) => a.orden - b.orden);
+    const idxT = tsCol.findIndex((x) => x.id === id);
+
+    let nuevaCol = t.columnaId;
+    if (accion === 'izq' && idxCol > 0) nuevaCol = cols[idxCol - 1].id;
+    else if (accion === 'dcha' && idxCol < cols.length - 1) nuevaCol = cols[idxCol + 1].id;
+    else if ((accion === 'izq' || accion === 'dcha')) return; // borde, no mover
+
+    if (accion === 'arriba' && idxT === 0) return;
+    if (accion === 'abajo' && idxT === tsCol.length - 1) return;
+
+    // Actualizar state
+    if (accion === 'izq' || accion === 'dcha') {
+      const destino = tarjetas.filter((x) => x.columnaId === nuevaCol);
+      tarjetas = tarjetas.map((x) => x.id === id ? { ...x, columnaId: nuevaCol, orden: destino.length } : x);
+    } else {
+      const paso = accion === 'arriba' ? -1 : 1;
+      const vecino = tsCol[idxT + paso];
+      tarjetas = tarjetas.map((x) => {
+        if (x.id === id) return { ...x, orden: vecino.orden };
+        if (x.id === vecino.id) return { ...x, orden: t.orden };
+        return x;
+      });
+    }
+
+    renderizar();
+
+    // Persistir orden completo
+    if (modoDemo) return;
+    const items: { id: string; orden: number; columnaId: string }[] = [];
+    tablero.querySelectorAll<HTMLElement>('.zona-drop').forEach((zona) => {
+      const colId = zona.dataset.columnaId!;
+      zona.querySelectorAll<HTMLElement>('.tarjeta-kanban').forEach((el, i) => {
+        items.push({ id: el.dataset.tarjetaId!, orden: i, columnaId: colId });
+      });
+    });
+    marcarSync('guardando');
+    try {
+      const res = await fetch('/api/kanban/reordenar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'tarjetas', items }),
+      });
+      if (!res.ok) throw new Error();
+      marcarSync('sincronizado');
+    } catch { marcarSync('error'); }
   }
 
   // Lee DOM y actualiza state + persiste
