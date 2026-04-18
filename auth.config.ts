@@ -10,6 +10,8 @@ const emailsAdmin = (import.meta.env.ADMIN_EMAILS || process.env.ADMIN_EMAILS ||
   .filter(Boolean);
 
 export default defineConfig({
+  trustHost: true,
+  basePath: '/api/auth',
   providers: [
     Google({
       clientId: import.meta.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
