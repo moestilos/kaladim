@@ -1,0 +1,35 @@
+---
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import TablaDatos from '../../../componentes/admin/TablaDatos.astro';
+import { db, esquema } from '../../../lib/db/cliente';
+import { desc } from 'drizzle-orm';
+
+export const prerender = false;
+
+let filas: any[] = [];
+let error: string | null = null;
+try {
+  if (import.meta.env.DATABASE_URL) {
+    filas = await db.select().from(esquema.automatizaciones).orderBy(desc(esquema.automatizaciones.creadoEn));
+  } else {
+    error = 'Sin DATABASE_URL — ejemplo';
+    filas = [
+      { id: 'a1', nombre: 'Sync CRM → Slack', estado: 'activa', ejecucionesTotales: 847, ejecucionesExitosas: 845 },
+      { id: 'a2', nombre: 'Facturación mensual', estado: 'desarrollo', ejecucionesTotales: 0, ejecucionesExitosas: 0 },
+    ];
+  }
+} catch (e) { error = e instanceof Error ? e.message : 'Error'; }
+
+const columnas = [
+  { clave: 'nombre', etiqueta: 'Automatización' },
+  { clave: 'estado', etiqueta: 'Estado' },
+  { clave: 'ejecucionesTotales', etiqueta: 'Total ejecuciones' },
+  { clave: 'ejecucionesExitosas', etiqueta: 'Exitosas' },
+];
+---
+<LayoutAdmin titulo="Automatizaciones" subtitulo="Flujos n8n vinculados a clientes">
+  <EncabezadoSeccion titulo="Automatizaciones" hrefNuevo="/admin/automatizaciones/nuevo" textoNuevo="Nueva automatización" />
+  {error && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {error}</div>}
+  <TablaDatos columnas={columnas} filas={filas} mensajeVacio="Sin automatizaciones todavía." />
+</LayoutAdmin>

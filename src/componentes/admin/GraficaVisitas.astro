@@ -1,0 +1,314 @@
+---
+// Gráfica de visitas diarias — carga desde /api/estadisticas/visitas
+// Barras SVG por día + tooltip hover + selector de rango.
+import { obtenerResumenVisitas, type ResumenVisitas } from '../../lib/utilidades/analiticas';
+
+let resumen: ResumenVisitas | null = null;
+let errorMsg: string | null = null;
+
+try {
+  if (import.meta.env.DATABASE_URL) {
+    resumen = await obtenerResumenVisitas(30);
+  } else {
+    errorMsg = 'Sin DATABASE_URL — mostrando datos de ejemplo';
+    // Datos demo
+    const hoy = new Date();
+    const serie = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(hoy);
+      d.setDate(d.getDate() - (29 - i));
+      const base = 20 + i * 2 + Math.round(Math.random() * 30);
+      return {
+        dia: d.toISOString().slice(0, 10),
+        visitas: base,
+        unicos: Math.round(base * 0.72),
+      };
+    });
+    resumen = {
+      serie,
+      total: serie.reduce((a, b) => a + b.visitas, 0),
+      unicos: serie.reduce((a, b) => a + b.unicos, 0),
+      vsAnterior: 18.4,
+      topRutas: [
+        { ruta: '/', visitas: 412 },
+        { ruta: '/#casos', visitas: 187 },
+        { ruta: '/#servicios', visitas: 134 },
+        { ruta: '/#contacto', visitas: 98 },
+      ],
+      topReferrers: [
+        { referrer: 'Directo', visitas: 520 },
+        { referrer: 'google.com', visitas: 210 },
+        { referrer: 'linkedin.com', visitas: 87 },
+        { referrer: 'twitter.com', visitas: 42 },
+      ],
+    };
+  }
+} catch (e) {
+  errorMsg = e instanceof Error ? e.message : 'Error';
+  resumen = null;
+}
+
+const maxVal = Math.max(1, ...(resumen?.serie.map((s) => s.visitas) ?? [1]));
+const formatoNum = new Intl.NumberFormat('es-ES');
+const positivo = (resumen?.vsAnterior ?? 0) >= 0;
+---
+
+<section class="tarjeta p-6">
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+    <div>
+      <h2 class="text-lg font-display font-semibold text-white">Visitas</h2>
+      <p class="text-xs text-carbon-400 mt-0.5">Tráfico diario de la web pública</p>
+    </div>
+    <div class="flex items-center gap-1.5 p-1 rounded-lg bg-carbon-900 border border-carbon-800">
+      <button data-rango="7"  class="btn-rango px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white transition">7d</button>
+      <button data-rango="30" class="btn-rango activo px-2.5 py-1 text-xs rounded bg-carbon-800 text-white">30d</button>
+      <button data-rango="90" class="btn-rango px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white transition">90d</button>
+    </div>
+  </div>
+
+  {errorMsg && (
+    <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+      ⚠ {errorMsg}
+    </div>
+  )}
+
+  {resumen && (
+    <>
+      <!-- Métricas top -->
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
+          <div class="text-[10px] uppercase tracking-wider text-carbon-500">Total visitas</div>
+          <div class="mt-1 flex items-baseline gap-2">
+            <span id="metrica-total" class="text-2xl font-display font-bold text-white tracking-tight">{formatoNum.format(resumen.total)}</span>
+            <span id="metrica-delta" class={`text-xs font-mono ${positivo ? 'text-emerald-400' : 'text-red-400'}`}>
+              {positivo ? '↑' : '↓'} {Math.abs(resumen.vsAnterior).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+        <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
+          <div class="text-[10px] uppercase tracking-wider text-carbon-500">Visitantes únicos</div>
+          <div class="mt-1 text-2xl font-display font-bold text-violeta-300 tracking-tight" id="metrica-unicos">{formatoNum.format(resumen.unicos)}</div>
+        </div>
+        <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
+          <div class="text-[10px] uppercase tracking-wider text-carbon-500">Media diaria</div>
+          <div class="mt-1 text-2xl font-display font-bold text-white tracking-tight" id="metrica-media">{formatoNum.format(Math.round(resumen.total / Math.max(1, resumen.serie.length)))}</div>
+        </div>
+      </div>
+
+      <!-- Gráfica SVG barras -->
+      <div class="relative">
+        <svg id="svg-grafica" viewBox={`0 0 ${resumen.serie.length * 12} 200`} preserveAspectRatio="none" class="w-full h-48">
+          <!-- Línea guía media -->
+          <line x1="0" y1="140" x2={resumen.serie.length * 12} y2="140" stroke="rgb(var(--acento-600) / 0.2)" stroke-width="0.5" stroke-dasharray="3,3"/>
+
+          {resumen.serie.map((s, i) => {
+            const altura = (s.visitas / maxVal) * 160;
+            const x = i * 12 + 1;
+            const y = 200 - altura;
+            return (
+              <g class="barra-grupo cursor-pointer" data-dia={s.dia} data-visitas={s.visitas} data-unicos={s.unicos}>
+                <!-- Hit area invisible -->
+                <rect x={x} y="0" width="10" height="200" fill="transparent"/>
+                <!-- Barra visitas -->
+                <rect
+                  class="barra-visitas transition-all"
+                  x={x}
+                  y={y}
+                  width="10"
+                  height={altura}
+                  rx="2"
+                  fill="rgb(var(--acento-500) / 0.85)"
+                />
+                <!-- Barra únicos superpuesta -->
+                <rect
+                  class="barra-unicos transition-all"
+                  x={x + 2}
+                  y={200 - (s.unicos / maxVal) * 160}
+                  width="6"
+                  height={(s.unicos / maxVal) * 160}
+                  rx="1.5"
+                  fill="rgb(var(--acento-300))"
+                  opacity="0.9"
+                />
+              </g>
+            );
+          })}
+        </svg>
+
+        <!-- Tooltip flotante -->
+        <div id="tooltip-grafica" class="hidden absolute pointer-events-none z-10 px-3 py-2 rounded-lg border border-carbon-700 bg-carbon-950/95 backdrop-blur shadow-xl text-xs font-mono">
+          <div class="text-carbon-400" id="tt-fecha"></div>
+          <div class="text-white mt-1"><span id="tt-visitas"></span> visitas</div>
+          <div class="text-violeta-300"><span id="tt-unicos"></span> únicos</div>
+        </div>
+      </div>
+
+      <!-- Leyenda -->
+      <div class="flex items-center justify-between mt-4 pt-4 border-t border-carbon-800">
+        <div class="flex items-center gap-4 text-xs">
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-sm bg-violeta-500"></span>
+            <span class="text-carbon-400">Visitas</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-sm bg-violeta-300"></span>
+            <span class="text-carbon-400">Únicos</span>
+          </div>
+        </div>
+        <div class="text-xs text-carbon-500 font-mono" id="rango-fechas">
+          {resumen.serie[0].dia} → {resumen.serie[resumen.serie.length - 1].dia}
+        </div>
+      </div>
+
+      <!-- Top páginas + referrers -->
+      <div class="grid sm:grid-cols-2 gap-4 mt-6">
+        <div>
+          <h3 class="text-xs uppercase tracking-wider text-carbon-500 mb-3">Páginas más vistas</h3>
+          <div id="top-rutas" class="space-y-2">
+            {resumen.topRutas.map((r) => (
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-carbon-300 font-mono text-xs truncate">{r.ruta}</span>
+                <span class="text-white font-medium tabular-nums">{formatoNum.format(r.visitas)}</span>
+              </div>
+            ))}
+            {resumen.topRutas.length === 0 && (
+              <div class="text-sm text-carbon-500">Sin datos aún</div>
+            )}
+          </div>
+        </div>
+        <div>
+          <h3 class="text-xs uppercase tracking-wider text-carbon-500 mb-3">Principales referrers</h3>
+          <div id="top-referrers" class="space-y-2">
+            {resumen.topReferrers.map((r) => (
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-carbon-300 text-xs truncate max-w-[75%]">{r.referrer}</span>
+                <span class="text-white font-medium tabular-nums">{formatoNum.format(r.visitas)}</span>
+              </div>
+            ))}
+            {resumen.topReferrers.length === 0 && (
+              <div class="text-sm text-carbon-500">Sin datos aún</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  )}
+</section>
+
+<script>
+  const fmt = new Intl.NumberFormat('es-ES');
+  const fmtFecha = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const svg = document.getElementById('svg-grafica');
+  const tooltip = document.getElementById('tooltip-grafica');
+  const ttFecha = document.getElementById('tt-fecha');
+  const ttVisitas = document.getElementById('tt-visitas');
+  const ttUnicos = document.getElementById('tt-unicos');
+
+  // Tooltip hover en barras
+  function vincularHover() {
+    svg?.querySelectorAll<SVGGElement>('.barra-grupo').forEach((g) => {
+      g.addEventListener('mouseenter', () => {
+        const dia = g.dataset.dia!;
+        const v = g.dataset.visitas!;
+        const u = g.dataset.unicos!;
+        ttFecha!.textContent = fmtFecha.format(new Date(dia));
+        ttVisitas!.textContent = fmt.format(Number(v));
+        ttUnicos!.textContent = fmt.format(Number(u));
+        tooltip!.classList.remove('hidden');
+
+        // Posicionar relativo al grupo
+        const rect = g.getBoundingClientRect();
+        const padre = svg!.parentElement!.getBoundingClientRect();
+        tooltip!.style.left = (rect.left - padre.left + rect.width / 2) + 'px';
+        tooltip!.style.top  = (rect.top  - padre.top - 60) + 'px';
+        tooltip!.style.transform = 'translateX(-50%)';
+
+        // Resaltar barra
+        g.querySelector<SVGRectElement>('.barra-visitas')?.setAttribute('fill', 'rgb(var(--acento-400))');
+      });
+      g.addEventListener('mouseleave', () => {
+        tooltip!.classList.add('hidden');
+        g.querySelector<SVGRectElement>('.barra-visitas')?.setAttribute('fill', 'rgb(var(--acento-500) / 0.85)');
+      });
+    });
+  }
+  vincularHover();
+
+  // Cambio de rango
+  const botonesRango = document.querySelectorAll<HTMLButtonElement>('.btn-rango');
+  botonesRango.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      botonesRango.forEach((b) => {
+        b.classList.remove('activo', 'bg-carbon-800', 'text-white');
+        b.classList.add('text-carbon-400');
+      });
+      btn.classList.add('activo', 'bg-carbon-800', 'text-white');
+      btn.classList.remove('text-carbon-400');
+
+      const dias = btn.dataset.rango;
+      try {
+        const res = await fetch(`/api/estadisticas/visitas?dias=${dias}`);
+        if (!res.ok) throw new Error('Error API');
+        const data = await res.json();
+        repintar(data);
+      } catch (e) {
+        console.error('[grafica]', e);
+      }
+    });
+  });
+
+  function repintar(data: any) {
+    const maxV = Math.max(1, ...data.serie.map((s: any) => s.visitas));
+    const ancho = data.serie.length * 12;
+    svg!.setAttribute('viewBox', `0 0 ${ancho} 200`);
+
+    // Reemplazar contenido barras
+    const linea = `<line x1="0" y1="140" x2="${ancho}" y2="140" stroke="rgb(var(--acento-600) / 0.2)" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+    const barras = data.serie.map((s: any, i: number) => {
+      const altura = (s.visitas / maxV) * 160;
+      const x = i * 12 + 1;
+      const y = 200 - altura;
+      const hu = (s.unicos / maxV) * 160;
+      return `
+        <g class="barra-grupo cursor-pointer" data-dia="${s.dia}" data-visitas="${s.visitas}" data-unicos="${s.unicos}">
+          <rect x="${x}" y="0" width="10" height="200" fill="transparent"/>
+          <rect class="barra-visitas transition-all" x="${x}" y="${y}" width="10" height="${altura}" rx="2" fill="rgb(var(--acento-500) / 0.85)"/>
+          <rect class="barra-unicos transition-all" x="${x + 2}" y="${200 - hu}" width="6" height="${hu}" rx="1.5" fill="rgb(var(--acento-300))" opacity="0.9"/>
+        </g>`;
+    }).join('');
+    svg!.innerHTML = linea + barras;
+    vincularHover();
+
+    // Métricas
+    const positivo = (data.vsAnterior ?? 0) >= 0;
+    document.getElementById('metrica-total')!.textContent = fmt.format(data.total);
+    const delta = document.getElementById('metrica-delta')!;
+    delta.textContent = `${positivo ? '↑' : '↓'} ${Math.abs(data.vsAnterior).toFixed(1)}%`;
+    delta.className = `text-xs font-mono ${positivo ? 'text-emerald-400' : 'text-red-400'}`;
+    document.getElementById('metrica-unicos')!.textContent = fmt.format(data.unicos);
+    document.getElementById('metrica-media')!.textContent = fmt.format(Math.round(data.total / Math.max(1, data.serie.length)));
+
+    // Rango
+    if (data.serie.length) {
+      document.getElementById('rango-fechas')!.textContent = `${data.serie[0].dia} → ${data.serie[data.serie.length - 1].dia}`;
+    }
+
+    // Top rutas / referrers
+    document.getElementById('top-rutas')!.innerHTML = data.topRutas.length === 0
+      ? '<div class="text-sm text-carbon-500">Sin datos</div>'
+      : data.topRutas.map((r: any) => `
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-carbon-300 font-mono text-xs truncate">${r.ruta}</span>
+            <span class="text-white font-medium tabular-nums">${fmt.format(r.visitas)}</span>
+          </div>`).join('');
+
+    document.getElementById('top-referrers')!.innerHTML = data.topReferrers.length === 0
+      ? '<div class="text-sm text-carbon-500">Sin datos</div>'
+      : data.topReferrers.map((r: any) => `
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-carbon-300 text-xs truncate max-w-[75%]">${r.referrer}</span>
+            <span class="text-white font-medium tabular-nums">${fmt.format(r.visitas)}</span>
+          </div>`).join('');
+  }
+</script>

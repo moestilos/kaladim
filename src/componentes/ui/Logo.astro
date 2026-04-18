@@ -1,0 +1,104 @@
+---
+// Logo Kaladim — monograma "K" abstracto tipo nodo/flujo.
+// Concepto: vertical bar = estructura · diagonales ramificadas = distribución/automatización.
+// Node luminoso en la intersección refuerza metáfora de red/n8n.
+
+interface Props {
+  tamano?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  mostrarTexto?: boolean;
+  soloMarca?: boolean;   // solo icono, sin link
+  invertido?: boolean;   // marca sólida invertida (sin fondo gradiente)
+}
+const { tamano = 'md', mostrarTexto = true, soloMarca = false, invertido = false } = Astro.props;
+
+const medidas = {
+  xs: { caja: 'h-6 w-6',  texto: 'text-sm'   },
+  sm: { caja: 'h-7 w-7',  texto: 'text-base' },
+  md: { caja: 'h-8 w-8',  texto: 'text-xl'   },
+  lg: { caja: 'h-10 w-10', texto: 'text-2xl' },
+  xl: { caja: 'h-14 w-14', texto: 'text-3xl' },
+};
+const m = medidas[tamano];
+const Wrapper = soloMarca ? 'div' : 'a';
+const props = soloMarca ? {} : { href: '/', 'aria-label': 'Kaladim — inicio' };
+---
+
+<Wrapper {...props} class="flex items-center gap-2.5 group">
+  <!-- Marca -->
+  <div class={`${m.caja} relative grid place-items-center shrink-0 ${
+    invertido
+      ? 'rounded-lg bg-white'
+      : 'rounded-[28%] bg-gradient-to-br from-violeta-500 via-violeta-600 to-violeta-800'
+  } shadow-lg shadow-violeta-600/40 transition-transform duration-300 group-hover:scale-[1.08] group-hover:rotate-[-4deg]`}>
+    <!-- Highlight sutil esquina superior izq (efecto cristal) -->
+    {!invertido && (
+      <span class="absolute inset-0 rounded-[28%] bg-gradient-to-br from-white/25 via-transparent to-transparent pointer-events-none"></span>
+    )}
+
+    <!-- SVG del monograma -->
+    <svg viewBox="0 0 32 32" class="h-[62%] w-[62%] relative" aria-hidden="true">
+      <defs>
+        <!-- Degradado de la marca blanca (aporta profundidad) -->
+        <linearGradient id="kld-bar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#ffffff" stop-opacity="1"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.85"/>
+        </linearGradient>
+        <!-- Brillo del nodo central -->
+        <radialGradient id="kld-node">
+          <stop offset="0%"  stop-color="#ffffff" stop-opacity="1"/>
+          <stop offset="60%" stop-color="#ffffff" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Color principal trazo -->
+      <g
+        fill="none"
+        stroke={invertido ? 'rgb(var(--acento-600))' : 'url(#kld-bar)'}
+        stroke-width="3.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <!-- Vertical bar (tallo K) -->
+        <path d="M8 5 V27" />
+        <!-- Diagonal superior con flecha (rama saliente arriba) -->
+        <path d="M8 16 L22 5" />
+        <path d="M17 5 H22 V10" />
+        <!-- Diagonal inferior con flecha (rama saliente abajo) -->
+        <path d="M8 16 L22 27" />
+        <path d="M17 27 H22 V22" />
+      </g>
+
+      <!-- Nodo central (junción) — pulso suave -->
+      <g>
+        <circle
+          cx="8" cy="16" r="2.6"
+          fill={invertido ? 'rgb(var(--acento-600))' : 'url(#kld-node)'}
+        />
+        <circle
+          cx="8" cy="16" r="4.5"
+          fill="none"
+          stroke={invertido ? 'rgb(var(--acento-600))' : '#ffffff'}
+          stroke-width="0.8"
+          opacity="0.35"
+        >
+          <animate attributeName="r" values="4;6;4" dur="2.4s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.35;0;0.35" dur="2.4s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+    </svg>
+
+    <!-- Glow violeta detrás -->
+    {!invertido && (
+      <span class="absolute inset-0 rounded-[28%] blur-lg opacity-70 bg-gradient-to-br from-violeta-500 to-violeta-700 -z-10"></span>
+    )}
+  </div>
+
+  <!-- Wordmark -->
+  {mostrarTexto && (
+    <span class={`${m.texto} font-display font-bold tracking-[-0.03em] text-white leading-none`}>
+      Kaladim
+      <span class="inline-block ml-0.5 h-1.5 w-1.5 rounded-full bg-violeta-400 align-baseline"></span>
+    </span>
+  )}
+</Wrapper>

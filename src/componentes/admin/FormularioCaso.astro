@@ -1,0 +1,306 @@
+---
+// Formulario crear/editar caso estudio. UI sin JSON: tags pills + métricas filas.
+interface Caso {
+  id?: string;
+  slug?: string;
+  titulo?: string;
+  anio?: string;
+  categoria?: string;
+  descripcion?: string;
+  url?: string;
+  urlLive?: string | null;
+  urlCodigo?: string | null;
+  tecnologias?: string;   // JSON string
+  metricas?: string;       // JSON string
+  grafica?: string;        // JSON string
+  orden?: number;
+  activo?: boolean;
+}
+interface Props {
+  caso?: Caso;
+  modo: 'crear' | 'editar';
+}
+const { caso, modo } = Astro.props;
+const accion = modo === 'crear' ? '/api/casos' : `/api/casos/${caso?.id}`;
+const metodo = modo === 'crear' ? 'POST' : 'PATCH';
+
+function parse<T>(s: string | undefined | null, f: T): T {
+  if (!s) return f;
+  try { return JSON.parse(s); } catch { return f; }
+}
+const tecs   = parse<string[]>(caso?.tecnologias, []);
+const mets   = parse<{ etiqueta: string; valor: string; sub?: string; acento?: boolean }[]>(caso?.metricas, []);
+const grafica = parse<number[]>(caso?.grafica, []);
+---
+
+<form id="formulario-caso" class="space-y-6" data-accion={accion} data-metodo={metodo}>
+  <!-- ══════ DATOS BÁSICOS ══════ -->
+  <div class="tarjeta p-6">
+    <h3 class="text-sm font-semibold text-white mb-4">Datos básicos</h3>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="sm:col-span-2">
+        <label class="etiqueta" for="titulo">Título *</label>
+        <input id="titulo" name="titulo" required class="input" value={caso?.titulo ?? ''} placeholder="MoePDF" />
+      </div>
+      <div>
+        <label class="etiqueta" for="slug">Slug (URL) *</label>
+        <input id="slug" name="slug" required class="input font-mono text-sm" value={caso?.slug ?? ''} placeholder="moepdf" pattern="[a-z0-9-]+" />
+        <p class="text-xs text-carbon-500 mt-1">Solo minúsculas, números y guiones</p>
+      </div>
+      <div>
+        <label class="etiqueta" for="anio">Año *</label>
+        <input id="anio" name="anio" required class="input" value={caso?.anio ?? ''} placeholder="2026" />
+      </div>
+      <div>
+        <label class="etiqueta" for="categoria">Categoría *</label>
+        <input id="categoria" name="categoria" required class="input" value={caso?.categoria ?? ''} placeholder="SaaS · Next.js" />
+      </div>
+      <div>
+        <label class="etiqueta" for="orden">Orden</label>
+        <input id="orden" name="orden" type="number" min="0" class="input" value={caso?.orden ?? 0} />
+        <p class="text-xs text-carbon-500 mt-1">Menor número = antes en la lista</p>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="etiqueta" for="descripcion">Descripción *</label>
+        <textarea id="descripcion" name="descripcion" required rows="3" class="input resize-none" placeholder="Qué hace, para quién, resultado destacado...">{caso?.descripcion ?? ''}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ URLS ══════ -->
+  <div class="tarjeta p-6">
+    <h3 class="text-sm font-semibold text-white mb-4">Enlaces</h3>
+    <div class="grid sm:grid-cols-3 gap-4">
+      <div>
+        <label class="etiqueta" for="url">URL mostrada *</label>
+        <input id="url" name="url" required class="input font-mono text-sm" value={caso?.url ?? ''} placeholder="moe-pdf.vercel.app" />
+      </div>
+      <div>
+        <label class="etiqueta" for="urlLive">Enlace "Live demo"</label>
+        <input id="urlLive" name="urlLive" type="url" class="input" value={caso?.urlLive ?? ''} placeholder="https://..." />
+      </div>
+      <div>
+        <label class="etiqueta" for="urlCodigo">Enlace "Code"</label>
+        <input id="urlCodigo" name="urlCodigo" type="url" class="input" value={caso?.urlCodigo ?? ''} placeholder="https://github.com/..." />
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ TECNOLOGÍAS (tags editables) ══════ -->
+  <div class="tarjeta p-6">
+    <h3 class="text-sm font-semibold text-white mb-1">Tecnologías</h3>
+    <p class="text-xs text-carbon-500 mb-4">Escribe y pulsa Enter para añadir. Click en ✕ para borrar.</p>
+    <div id="contenedor-tecs" class="flex flex-wrap gap-2 p-3 rounded-lg border border-carbon-700 bg-carbon-900 min-h-[60px]">
+      <input id="input-tec" type="text" class="flex-1 min-w-[150px] bg-transparent text-sm text-white placeholder:text-carbon-500 focus:outline-none" placeholder="Next.js, TypeScript..." />
+    </div>
+    <input type="hidden" id="tecnologias" name="tecnologias" value={JSON.stringify(tecs)} />
+  </div>
+
+  <!-- ══════ MÉTRICAS (3 filas) ══════ -->
+  <div class="tarjeta p-6">
+    <h3 class="text-sm font-semibold text-white mb-1">Métricas destacadas</h3>
+    <p class="text-xs text-carbon-500 mb-4">Hasta 3 tarjetas visibles en el preview.</p>
+    <div id="filas-metricas" class="space-y-3"></div>
+    <button type="button" id="btn-añadir-metrica" class="btn-secundario text-sm mt-3">+ Añadir métrica</button>
+    <input type="hidden" id="metricas" name="metricas" value={JSON.stringify(mets)} />
+  </div>
+
+  <!-- ══════ GRÁFICA (16 puntos 0-100) ══════ -->
+  <div class="tarjeta p-6">
+    <h3 class="text-sm font-semibold text-white mb-1">Gráfica (sparkline)</h3>
+    <p class="text-xs text-carbon-500 mb-4">16 valores entre 0 y 100. Mueve los sliders para dibujar la tendencia.</p>
+    <div id="sliders-grafica" class="grid grid-cols-16 gap-1 h-32 items-end"></div>
+    <div class="mt-3 flex justify-between text-[10px] font-mono text-carbon-500">
+      <span>día 1</span><span>día 16</span>
+    </div>
+    <input type="hidden" id="grafica" name="grafica" value={JSON.stringify(grafica)} />
+    <div class="mt-4 flex gap-2 flex-wrap">
+      <button type="button" class="btn-secundario text-xs preset-grafica" data-preset="crecimiento">↗ Crecimiento</button>
+      <button type="button" class="btn-secundario text-xs preset-grafica" data-preset="estable">→ Estable</button>
+      <button type="button" class="btn-secundario text-xs preset-grafica" data-preset="picos">⚡ Con picos</button>
+      <button type="button" class="btn-secundario text-xs preset-grafica" data-preset="aleatorio">🎲 Aleatorio</button>
+    </div>
+  </div>
+
+  <!-- ══════ VISIBILIDAD ══════ -->
+  <div class="tarjeta p-6 flex items-center justify-between">
+    <div>
+      <h3 class="text-sm font-semibold text-white">Visible en la web</h3>
+      <p class="text-xs text-carbon-500 mt-1">Desactiva para ocultar sin borrar.</p>
+    </div>
+    <label class="relative inline-flex items-center cursor-pointer">
+      <input type="checkbox" id="activo" name="activo" class="sr-only peer" checked={caso?.activo ?? true} />
+      <div class="w-12 h-6 bg-carbon-700 rounded-full peer-checked:bg-violeta-600 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-6"></div>
+    </label>
+  </div>
+
+  <!-- Estado + acciones -->
+  <div id="estado-formulario" class="hidden"></div>
+  <div class="flex items-center justify-between pt-4 border-t border-carbon-800">
+    <a href="/admin/casos" class="btn-fantasma">← Cancelar</a>
+    <button type="submit" class="btn-primario">
+      {modo === 'crear' ? 'Crear caso' : 'Guardar cambios'}
+    </button>
+  </div>
+</form>
+
+<style>
+  #sliders-grafica { grid-template-columns: repeat(16, minmax(0, 1fr)); }
+  .slider-barra {
+    @apply w-full bg-violeta-500/80 rounded-t cursor-ns-resize hover:bg-violeta-400 transition-colors relative;
+  }
+</style>
+
+<script define:vars={{ tecsInit: tecs, metsInit: mets, graficaInit: grafica }}>
+  // ── Tecnologías pills ─────────────────────────────────
+  const cont = document.getElementById('contenedor-tecs');
+  const inputTec = document.getElementById('input-tec');
+  const hidTec = document.getElementById('tecnologias');
+  let tecsState = Array.isArray(tecsInit) ? [...tecsInit] : [];
+
+  function pintarTecs() {
+    // Eliminar pills (no input)
+    cont.querySelectorAll('.pill-tec').forEach((el) => el.remove());
+    tecsState.forEach((t, i) => {
+      const pill = document.createElement('span');
+      pill.className = 'pill-tec inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-carbon-800 border border-carbon-700 text-xs font-mono text-carbon-200';
+      pill.innerHTML = `<span>${t}</span><button type="button" data-i="${i}" class="text-carbon-500 hover:text-red-400">✕</button>`;
+      cont.insertBefore(pill, inputTec);
+    });
+    hidTec.value = JSON.stringify(tecsState);
+  }
+  inputTec.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const v = inputTec.value.trim();
+      if (v && !tecsState.includes(v)) { tecsState.push(v); inputTec.value = ''; pintarTecs(); }
+    } else if (e.key === 'Backspace' && !inputTec.value && tecsState.length) {
+      tecsState.pop(); pintarTecs();
+    }
+  });
+  cont.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-i]');
+    if (btn) { tecsState.splice(Number(btn.dataset.i), 1); pintarTecs(); }
+  });
+  pintarTecs();
+
+  // ── Métricas filas ─────────────────────────────────
+  const contMets = document.getElementById('filas-metricas');
+  const hidMets = document.getElementById('metricas');
+  let metsState = Array.isArray(metsInit) && metsInit.length ? [...metsInit] : [{ etiqueta: '', valor: '', sub: '', acento: true }];
+
+  function pintarMets() {
+    contMets.innerHTML = metsState.map((m, i) => `
+      <div class="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-center">
+        <input type="text" placeholder="Etiqueta" value="${m.etiqueta ?? ''}" data-i="${i}" data-k="etiqueta" class="input input-metrica py-2 text-sm" />
+        <input type="text" placeholder="Valor" value="${m.valor ?? ''}" data-i="${i}" data-k="valor" class="input input-metrica py-2 text-sm font-mono" />
+        <input type="text" placeholder="Sub (opcional)" value="${m.sub ?? ''}" data-i="${i}" data-k="sub" class="input input-metrica py-2 text-sm" />
+        <label class="flex items-center gap-1.5 text-xs text-carbon-400">
+          <input type="checkbox" ${m.acento ? 'checked' : ''} data-i="${i}" data-k="acento" class="input-metrica accent-violeta-600" /> Destacar
+        </label>
+        <button type="button" data-rm="${i}" class="p-2 text-carbon-500 hover:text-red-400" title="Eliminar">✕</button>
+      </div>
+    `).join('');
+    hidMets.value = JSON.stringify(metsState);
+  }
+  contMets.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el.classList.contains('input-metrica')) return;
+    const i = Number(el.dataset.i);
+    const k = el.dataset.k;
+    metsState[i][k] = k === 'acento' ? el.checked : el.value;
+    hidMets.value = JSON.stringify(metsState);
+  });
+  contMets.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-rm]');
+    if (btn) { metsState.splice(Number(btn.dataset.rm), 1); pintarMets(); }
+  });
+  document.getElementById('btn-añadir-metrica').addEventListener('click', () => {
+    if (metsState.length < 5) {
+      metsState.push({ etiqueta: '', valor: '', sub: '', acento: false });
+      pintarMets();
+    }
+  });
+  pintarMets();
+
+  // ── Gráfica sliders ─────────────────────────────────
+  const contSl = document.getElementById('sliders-grafica');
+  const hidGr = document.getElementById('grafica');
+  let grState = (Array.isArray(graficaInit) && graficaInit.length === 16) ? [...graficaInit] : Array(16).fill(0).map((_,i) => 20 + i * 4);
+
+  function pintarSliders() {
+    contSl.innerHTML = grState.map((v, i) => `
+      <div class="relative h-full flex flex-col justify-end group">
+        <button type="button" data-i="${i}" class="slider-barra" style="height: ${Math.max(2, v)}%" title="Valor ${v}"></button>
+      </div>
+    `).join('');
+    hidGr.value = JSON.stringify(grState);
+  }
+  // Drag vertical: mouse/touch
+  let arrastrando = -1;
+  contSl.addEventListener('mousedown', (e) => {
+    const btn = e.target.closest('button[data-i]');
+    if (btn) { arrastrando = Number(btn.dataset.i); e.preventDefault(); }
+  });
+  window.addEventListener('mouseup', () => { arrastrando = -1; });
+  window.addEventListener('mousemove', (e) => {
+    if (arrastrando < 0) return;
+    const rect = contSl.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const v = Math.max(0, Math.min(100, Math.round(100 - (y / rect.height) * 100)));
+    grState[arrastrando] = v;
+    pintarSliders();
+  });
+  pintarSliders();
+
+  // Presets
+  document.querySelectorAll('.preset-grafica').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const p = btn.dataset.preset;
+      if (p === 'crecimiento') grState = Array.from({ length: 16 }, (_, i) => 15 + i * 5 + (Math.random() * 6 - 3));
+      else if (p === 'estable') grState = Array.from({ length: 16 }, () => 55 + (Math.random() * 10 - 5));
+      else if (p === 'picos') grState = Array.from({ length: 16 }, (_, i) => 40 + Math.sin(i * 0.8) * 25 + (Math.random() * 8));
+      else grState = Array.from({ length: 16 }, () => Math.round(Math.random() * 90 + 10));
+      grState = grState.map((v) => Math.max(0, Math.min(100, Math.round(v))));
+      pintarSliders();
+    });
+  });
+
+  // ── Envío ─────────────────────────────────
+  const formulario = document.getElementById('formulario-caso');
+  const estado = document.getElementById('estado-formulario');
+  formulario.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(formulario);
+    const datos = Object.fromEntries(fd.entries());
+    datos.activo = formulario.querySelector('#activo').checked;
+    datos.tecnologias = hidTec.value;
+    datos.metricas = hidMets.value;
+    datos.grafica = hidGr.value;
+    estado.className = 'hidden';
+    try {
+      const res = await fetch(formulario.dataset.accion, {
+        method: formulario.dataset.metodo,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Error al guardar');
+      }
+      location.href = '/admin/casos';
+    } catch (err) {
+      estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
+      estado.textContent = '✗ ' + err.message;
+    }
+  });
+
+  // Auto-generar slug desde título
+  const inpTitulo = document.getElementById('titulo');
+  const inpSlug = document.getElementById('slug');
+  inpTitulo.addEventListener('blur', () => {
+    if (!inpSlug.value && inpTitulo.value) {
+      inpSlug.value = inpTitulo.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+  });
+</script>

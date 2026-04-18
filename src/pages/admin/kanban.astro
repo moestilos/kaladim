@@ -1,0 +1,619 @@
+---
+import LayoutAdmin from '../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../componentes/admin/EncabezadoSeccion.astro';
+import { db, esquema } from '../../lib/db/cliente';
+import { asc, desc } from 'drizzle-orm';
+
+export const prerender = false;
+
+type Col = { id: string; titulo: string; color: string; orden: number };
+type Tar = {
+  id: string; columnaId: string; titulo: string; descripcion: string | null;
+  orden: number; prioridad: string; etiquetas: string;
+  asignadoEmail: string | null; fechaLimite: string | null;
+  proyectoId: string | null;
+};
+type Proy = { id: string; titulo: string; estado: string };
+
+let columnas: Col[] = [];
+let tarjetas: Tar[] = [];
+let proyectos: Proy[] = [];
+let errorMsg: string | null = null;
+let modoDemo = false;
+
+try {
+  if (import.meta.env.DATABASE_URL) {
+    columnas = await db.select().from(esquema.kanbanColumnas).orderBy(asc(esquema.kanbanColumnas.orden)) as any;
+    tarjetas = await db.select().from(esquema.kanbanTarjetas).orderBy(asc(esquema.kanbanTarjetas.orden)) as any;
+    proyectos = await db.select({
+      id: esquema.proyectos.id,
+      titulo: esquema.proyectos.titulo,
+      estado: esquema.proyectos.estado,
+    }).from(esquema.proyectos).orderBy(desc(esquema.proyectos.creadoEn)) as any;
+
+    if (columnas.length === 0) {
+      const defaults = [
+        { titulo: 'Por hacer',   color: 'carbon',  orden: 0 },
+        { titulo: 'En progreso', color: 'violeta', orden: 1 },
+        { titulo: 'En revisión', color: 'amber',   orden: 2 },
+        { titulo: 'Completado',  color: 'emerald', orden: 3 },
+      ];
+      columnas = await db.insert(esquema.kanbanColumnas).values(defaults).returning() as any;
+    }
+  } else {
+    modoDemo = true;
+    errorMsg = 'Sin DATABASE_URL — modo demo (cambios no persisten)';
+    columnas = [
+      { id: 'c1', titulo: 'Por hacer',   color: 'carbon',  orden: 0 },
+      { id: 'c2', titulo: 'En progreso', color: 'violeta', orden: 1 },
+      { id: 'c3', titulo: 'En revisión', color: 'amber',   orden: 2 },
+      { id: 'c4', titulo: 'Completado',  color: 'emerald', orden: 3 },
+    ];
+    proyectos = [
+      { id: 'p1', titulo: 'Web corporativa Acme', estado: 'en_progreso' },
+      { id: 'p2', titulo: 'Automatización CRM', estado: 'en_progreso' },
+    ];
+    tarjetas = [
+      { id: 't1', columnaId: 'c1', titulo: 'Diseño landing página', descripcion: 'Mockups Figma + revisión', orden: 0, prioridad: 'alta', etiquetas: '["diseño","urgente"]', asignadoEmail: 'ana@kaladim.com', fechaLimite: new Date(Date.now() + 86400000 * 3).toISOString(), proyectoId: 'p1' },
+      { id: 't2', columnaId: 'c1', titulo: 'Configurar analytics', descripcion: null, orden: 1, prioridad: 'media', etiquetas: '["dev"]', asignadoEmail: null, fechaLimite: null, proyectoId: null },
+      { id: 't3', columnaId: 'c2', titulo: 'API endpoints CRUD', descripcion: 'Validación Zod + tests', orden: 0, prioridad: 'alta', etiquetas: '["backend"]', asignadoEmail: 'luis@kaladim.com', fechaLimite: new Date(Date.now() + 86400000 * 2).toISOString(), proyectoId: 'p2' },
+      { id: 't4', columnaId: 'c3', titulo: 'Review automatización facturación', descripcion: null, orden: 0, prioridad: 'urgente', etiquetas: '["n8n","revisión"]', asignadoEmail: null, fechaLimite: new Date(Date.now() + 86400000).toISOString(), proyectoId: 'p2' },
+      { id: 't5', columnaId: 'c4', titulo: 'Deploy web Acme', descripcion: null, orden: 0, prioridad: 'baja', etiquetas: '["deploy"]', asignadoEmail: null, fechaLimite: null, proyectoId: 'p1' },
+    ];
+  }
+} catch (e) {
+  errorMsg = e instanceof Error ? e.message : 'Error';
+}
+---
+
+<LayoutAdmin titulo="Kanban" subtitulo="Gestión de tareas tipo Trello">
+  <EncabezadoSeccion
+    titulo="Tablero Kanban"
+    descripcion="Arrastra tarjetas. Doble click para editar. Se sincroniza cada 8s."
+  />
+
+  {errorMsg && (
+    <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+      ⚠ {errorMsg}
+    </div>
+  )}
+
+  <!-- Barra de filtros + estado sync -->
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+    <label class="text-xs text-carbon-400">Filtrar por proyecto</label>
+    <select id="filtro-proyecto" class="input py-1.5 text-sm max-w-xs">
+      <option value="">Todos los proyectos</option>
+      <option value="__sin__">Sin proyecto</option>
+      {proyectos.map((p) => (
+        <option value={p.id}>{p.titulo}</option>
+      ))}
+    </select>
+
+    <div class="ml-auto flex items-center gap-2 text-xs text-carbon-400">
+      <span id="estado-sync" class="flex items-center gap-1.5">
+        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="estado-sync-texto">Sincronizado</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Tablero (renderizado por JS) -->
+  <div id="tablero" class="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 lg:-mx-8 lg:px-8 min-h-[60vh]"></div>
+</LayoutAdmin>
+
+<!-- ═══════ MODAL TARJETA ═══════ -->
+<div id="modal-tarjeta" class="fixed inset-0 z-[100] hidden items-start justify-center pt-[6vh] px-4" role="dialog" aria-modal="true">
+  <div class="absolute inset-0 bg-carbon-950/70 backdrop-blur-md" id="modal-tarjeta-fondo"></div>
+  <div class="relative w-full max-w-lg tarjeta-glass p-6 animate-modal-in max-h-[88vh] overflow-y-auto">
+    <form id="form-tarjeta" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-display font-semibold text-white" id="titulo-modal">Nueva tarjeta</h3>
+        <button type="button" id="cerrar-modal" class="text-carbon-400 hover:text-white">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div>
+        <label class="etiqueta" for="t-titulo">Título *</label>
+        <input id="t-titulo" name="titulo" required class="input" maxlength="200" />
+      </div>
+      <div>
+        <label class="etiqueta" for="t-desc">Descripción</label>
+        <textarea id="t-desc" name="descripcion" rows="3" class="input resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="etiqueta" for="t-prioridad">Prioridad</label>
+          <select id="t-prioridad" name="prioridad" class="input">
+            <option value="baja">Baja</option>
+            <option value="media" selected>Media</option>
+            <option value="alta">Alta</option>
+            <option value="urgente">Urgente</option>
+          </select>
+        </div>
+        <div>
+          <label class="etiqueta" for="t-fecha">Fecha límite</label>
+          <input id="t-fecha" name="fechaLimite" type="date" class="input" />
+        </div>
+      </div>
+      <div>
+        <label class="etiqueta" for="t-proyecto">Proyecto vinculado</label>
+        <select id="t-proyecto" name="proyectoId" class="input">
+          <option value="">— Sin proyecto —</option>
+          {proyectos.map((p) => (<option value={p.id}>{p.titulo}</option>))}
+        </select>
+      </div>
+      <div>
+        <label class="etiqueta" for="t-asignado">Asignado a (email)</label>
+        <input id="t-asignado" name="asignadoEmail" type="email" class="input" placeholder="persona@empresa.com" />
+      </div>
+      <div>
+        <label class="etiqueta" for="t-etiquetas">Etiquetas (separadas por coma)</label>
+        <input id="t-etiquetas" name="etiquetas" class="input" placeholder="diseño, urgente, frontend" />
+      </div>
+
+      <input type="hidden" id="t-id" />
+      <input type="hidden" id="t-columna" name="columnaId" />
+
+      <div class="flex items-center justify-between pt-3 border-t border-carbon-800">
+        <button type="button" id="btn-borrar-tarjeta" class="text-sm text-red-400 hover:text-red-300 hidden">Eliminar</button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" id="cancelar-modal" class="btn-fantasma">Cancelar</button>
+          <button type="submit" class="btn-primario">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Datos iniciales serializados -->
+<script id="datos-iniciales" type="application/json" set:html={JSON.stringify({ columnas, tarjetas, proyectos, modoDemo })}></script>
+
+<script>
+  // ══════════════════ Estado global ══════════════════
+  type Col = { id: string; titulo: string; color: string; orden: number };
+  type Tar = {
+    id: string; columnaId: string; titulo: string; descripcion: string | null;
+    orden: number; prioridad: string; etiquetas: string;
+    asignadoEmail: string | null; fechaLimite: string | null; proyectoId: string | null;
+  };
+  type Proy = { id: string; titulo: string; estado: string };
+
+  const datos = JSON.parse(document.getElementById('datos-iniciales')!.textContent!);
+  let columnas: Col[] = datos.columnas;
+  let tarjetas: Tar[] = datos.tarjetas;
+  const proyectos: Proy[] = datos.proyectos;
+  const modoDemo: boolean = datos.modoDemo;
+
+  const mapaProyectos = new Map(proyectos.map((p) => [p.id, p.titulo]));
+
+  let filtroProyecto = '';
+  let arrastrando = false;   // lock para polling mientras arrastras
+  let modalAbierto = false;  // lock para polling mientras editas
+
+  const coloresColumna: Record<string, string> = {
+    carbon: 'bg-carbon-600', violeta: 'bg-violeta-500',
+    emerald: 'bg-emerald-500', amber: 'bg-amber-500',
+    red: 'bg-red-500', cyan: 'bg-cyan-500',
+  };
+
+  // ══════════════════ Render ══════════════════
+  function tarjetasVisibles(colId: string): Tar[] {
+    let ts = tarjetas.filter((t) => t.columnaId === colId);
+    if (filtroProyecto === '__sin__') ts = ts.filter((t) => !t.proyectoId);
+    else if (filtroProyecto) ts = ts.filter((t) => t.proyectoId === filtroProyecto);
+    return ts.sort((a, b) => a.orden - b.orden);
+  }
+
+  function escHtml(s: string | null | undefined): string {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderTarjeta(t: Tar): string {
+    let tags: string[] = [];
+    try { tags = JSON.parse(t.etiquetas); } catch {}
+    const fl = t.fechaLimite ? new Date(t.fechaLimite) : null;
+    const vencida = fl && fl < new Date();
+    const proyNombre = t.proyectoId ? mapaProyectos.get(t.proyectoId) : null;
+
+    const prioClase = t.prioridad === 'urgente' ? 'bg-red-500/15 text-red-300 border-red-500/30'
+      : t.prioridad === 'alta' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+      : t.prioridad === 'media' ? 'bg-violeta-500/15 text-violeta-300 border-violeta-500/30'
+      : 'bg-carbon-800 text-carbon-400 border-carbon-700';
+
+    return `
+      <article
+        draggable="true"
+        data-tarjeta-id="${t.id}"
+        data-columna-id="${t.columnaId}"
+        class="tarjeta-kanban group cursor-grab active:cursor-grabbing p-3 rounded-lg border border-carbon-800 bg-carbon-950/80 hover:border-violeta-500/40 hover:bg-carbon-900 transition-all"
+      >
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <div class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${prioClase}">${t.prioridad}</div>
+          <button type="button" class="btn-editar opacity-0 group-hover:opacity-100 transition text-carbon-500 hover:text-white" data-id="${t.id}">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <h4 class="text-sm font-medium text-white leading-snug">${escHtml(t.titulo)}</h4>
+        ${t.descripcion ? `<p class="mt-1.5 text-xs text-carbon-400 line-clamp-2">${escHtml(t.descripcion)}</p>` : ''}
+        ${proyNombre ? `<div class="mt-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violeta-500/10 border border-violeta-500/25 text-violeta-300">
+          <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+          ${escHtml(proyNombre)}
+        </div>` : ''}
+        ${(tags.length || fl || t.asignadoEmail) ? `<div class="mt-2 flex flex-wrap items-center gap-1.5">
+          ${tags.map((e) => `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-carbon-800 border border-carbon-700 text-carbon-300">#${escHtml(e)}</span>`).join('')}
+          ${fl ? `<span class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${vencida ? 'bg-red-500/15 text-red-300' : 'bg-carbon-800 text-carbon-400'}">
+            <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            ${fl.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+          </span>` : ''}
+          ${t.asignadoEmail ? `<span class="h-5 w-5 rounded-full bg-violeta-600 grid place-items-center text-[10px] font-semibold text-white" title="${escHtml(t.asignadoEmail)}">${t.asignadoEmail[0].toUpperCase()}</span>` : ''}
+        </div>` : ''}
+      </article>
+    `;
+  }
+
+  function renderColumna(col: Col): string {
+    const ts = tarjetasVisibles(col.id);
+    return `
+      <div class="columna shrink-0 w-[300px] sm:w-[320px] rounded-xl border border-carbon-800 bg-carbon-900/50 backdrop-blur flex flex-col max-h-[calc(100vh-240px)]" data-columna-id="${col.id}">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-carbon-800">
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <span class="h-2.5 w-2.5 rounded-full ${coloresColumna[col.color] ?? 'bg-carbon-600'}"></span>
+            <h3 class="font-semibold text-white text-sm truncate">${escHtml(col.titulo)}</h3>
+            <span class="contador text-xs font-mono text-carbon-500">${ts.length}</span>
+          </div>
+          <button type="button" class="btn-menu-col p-1 rounded hover:bg-carbon-800 text-carbon-400 hover:text-white" data-id="${col.id}" title="Opciones">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <div class="zona-drop flex-1 overflow-y-auto p-3 space-y-2 transition-colors" data-columna-id="${col.id}">
+          ${ts.map(renderTarjeta).join('')}
+        </div>
+        <div class="p-2 border-t border-carbon-800">
+          <button type="button" class="btn-anadir w-full px-3 py-2 text-sm text-carbon-400 hover:text-white hover:bg-carbon-800 rounded-lg transition flex items-center gap-2" data-columna-id="${col.id}">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            Añadir tarjeta
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  const tablero = document.getElementById('tablero')!;
+  function renderizar() {
+    const cols = [...columnas].sort((a, b) => a.orden - b.orden);
+    tablero.innerHTML = cols.map(renderColumna).join('') + `
+      <button type="button" id="btn-nueva-col" class="shrink-0 w-[280px] h-14 rounded-xl border border-dashed border-carbon-700 text-carbon-400 hover:border-violeta-500/50 hover:text-white hover:bg-carbon-900/40 transition flex items-center justify-center gap-2 self-start mt-12">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        Nueva columna
+      </button>`;
+    vincularEventos();
+  }
+
+  // ══════════════════ Eventos ══════════════════
+  let tarjetaArrastrada: HTMLElement | null = null;
+
+  function vincularEventos() {
+    // Drag tarjetas
+    tablero.querySelectorAll<HTMLElement>('.tarjeta-kanban').forEach((el) => {
+      el.addEventListener('dragstart', (e) => {
+        tarjetaArrastrada = el;
+        arrastrando = true;
+        el.classList.add('opacity-40');
+        (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('opacity-40');
+        tarjetaArrastrada = null;
+        setTimeout(() => { arrastrando = false; }, 200);
+      });
+      el.addEventListener('dblclick', () => abrirModal(el.dataset.tarjetaId!));
+    });
+
+    // Zonas drop
+    tablero.querySelectorAll<HTMLElement>('.zona-drop').forEach((zona) => {
+      zona.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zona.classList.add('bg-violeta-500/5');
+        if (!tarjetaArrastrada) return;
+        const after = obtenerDespues(zona, (e as DragEvent).clientY);
+        if (after == null) zona.appendChild(tarjetaArrastrada);
+        else zona.insertBefore(tarjetaArrastrada, after);
+      });
+      zona.addEventListener('dragleave', () => zona.classList.remove('bg-violeta-500/5'));
+      zona.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        zona.classList.remove('bg-violeta-500/5');
+        await confirmarOrden();
+      });
+    });
+
+    // Editar / añadir
+    tablero.querySelectorAll<HTMLButtonElement>('.btn-editar').forEach((b) => {
+      b.addEventListener('click', (e) => { e.stopPropagation(); abrirModal(b.dataset.id!); });
+    });
+    tablero.querySelectorAll<HTMLButtonElement>('.btn-anadir').forEach((b) => {
+      b.addEventListener('click', () => abrirModal(null, b.dataset.columnaId!));
+    });
+    tablero.querySelectorAll<HTMLButtonElement>('.btn-menu-col').forEach((b) => {
+      b.addEventListener('click', () => menuColumna(b.dataset.id!));
+    });
+
+    document.getElementById('btn-nueva-col')?.addEventListener('click', nuevaColumna);
+  }
+
+  function obtenerDespues(zona: HTMLElement, y: number) {
+    const ts = [...zona.querySelectorAll<HTMLElement>('.tarjeta-kanban:not(.opacity-40)')];
+    return ts.reduce<{ offset: number; el: HTMLElement | null }>((cerca, hijo) => {
+      const box = hijo.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > cerca.offset) return { offset, el: hijo };
+      return cerca;
+    }, { offset: Number.NEGATIVE_INFINITY, el: null }).el;
+  }
+
+  // Lee DOM y actualiza state + persiste
+  async function confirmarOrden() {
+    const items: { id: string; orden: number; columnaId: string }[] = [];
+    tablero.querySelectorAll<HTMLElement>('.zona-drop').forEach((zona) => {
+      const colId = zona.dataset.columnaId!;
+      zona.querySelectorAll<HTMLElement>('.tarjeta-kanban').forEach((t, i) => {
+        items.push({ id: t.dataset.tarjetaId!, orden: i, columnaId: colId });
+      });
+    });
+
+    // Optimistic: actualizar state
+    const mapa = new Map(items.map((i) => [i.id, i]));
+    tarjetas = tarjetas.map((t) => {
+      const m = mapa.get(t.id);
+      return m ? { ...t, orden: m.orden, columnaId: m.columnaId } : t;
+    });
+    actualizarContadores();
+
+    if (modoDemo) return;
+    marcarSync('guardando');
+    try {
+      const res = await fetch('/api/kanban/reordenar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'tarjetas', items }),
+      });
+      if (!res.ok) throw new Error();
+      marcarSync('sincronizado');
+    } catch {
+      marcarSync('error');
+    }
+  }
+
+  function actualizarContadores() {
+    tablero.querySelectorAll<HTMLElement>('.columna').forEach((col) => {
+      const n = col.querySelectorAll('.tarjeta-kanban').length;
+      col.querySelector('.contador')!.textContent = String(n);
+    });
+  }
+
+  // ══════════════════ Modal ══════════════════
+  const modal = document.getElementById('modal-tarjeta')!;
+  const form = document.getElementById('form-tarjeta') as HTMLFormElement;
+  const btnBorrar = document.getElementById('btn-borrar-tarjeta')!;
+
+  function abrirModal(tarjetaId: string | null, columnaId?: string) {
+    modalAbierto = true;
+    form.reset();
+    (document.getElementById('t-id') as HTMLInputElement).value = tarjetaId ?? '';
+
+    if (tarjetaId) {
+      const t = tarjetas.find((x) => x.id === tarjetaId);
+      if (!t) return;
+      document.getElementById('titulo-modal')!.textContent = 'Editar tarjeta';
+      btnBorrar.classList.remove('hidden');
+      (document.getElementById('t-titulo') as HTMLInputElement).value = t.titulo;
+      (document.getElementById('t-desc') as HTMLTextAreaElement).value = t.descripcion ?? '';
+      (document.getElementById('t-prioridad') as HTMLSelectElement).value = t.prioridad;
+      (document.getElementById('t-asignado') as HTMLInputElement).value = t.asignadoEmail ?? '';
+      (document.getElementById('t-proyecto') as HTMLSelectElement).value = t.proyectoId ?? '';
+      (document.getElementById('t-columna') as HTMLInputElement).value = t.columnaId;
+      (document.getElementById('t-fecha') as HTMLInputElement).value = t.fechaLimite ? t.fechaLimite.slice(0, 10) : '';
+      try {
+        const tags = JSON.parse(t.etiquetas) as string[];
+        (document.getElementById('t-etiquetas') as HTMLInputElement).value = tags.join(', ');
+      } catch {}
+    } else {
+      document.getElementById('titulo-modal')!.textContent = 'Nueva tarjeta';
+      btnBorrar.classList.add('hidden');
+      (document.getElementById('t-columna') as HTMLInputElement).value = columnaId ?? columnas[0]?.id ?? '';
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => (document.getElementById('t-titulo') as HTMLInputElement).focus(), 40);
+  }
+
+  function cerrarModal() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    modalAbierto = false;
+  }
+
+  document.getElementById('cerrar-modal')!.addEventListener('click', cerrarModal);
+  document.getElementById('cancelar-modal')!.addEventListener('click', cerrarModal);
+  document.getElementById('modal-tarjeta-fondo')!.addEventListener('click', cerrarModal);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) cerrarModal(); });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = (document.getElementById('t-id') as HTMLInputElement).value;
+    const datos: any = Object.fromEntries(new FormData(form).entries());
+    datos.etiquetas = JSON.stringify(
+      (datos.etiquetas as string).split(',').map((s) => s.trim()).filter(Boolean),
+    );
+    if (!datos.fechaLimite) datos.fechaLimite = null;
+    if (!datos.asignadoEmail) datos.asignadoEmail = null;
+    if (!datos.descripcion) datos.descripcion = null;
+    if (!datos.proyectoId) datos.proyectoId = null;
+
+    if (modoDemo) {
+      // Mutar state local
+      if (id) {
+        tarjetas = tarjetas.map((t) => t.id === id ? { ...t, ...datos } : t);
+      } else {
+        const nuevoId = 'demo-' + Math.random().toString(36).slice(2, 9);
+        const orden = tarjetas.filter((t) => t.columnaId === datos.columnaId).length;
+        tarjetas.push({ ...datos, id: nuevoId, orden });
+      }
+      cerrarModal();
+      renderizar();
+      return;
+    }
+
+    marcarSync('guardando');
+    try {
+      const url = id ? `/api/kanban/tarjetas/${id}` : '/api/kanban/tarjetas';
+      const metodo = id ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) throw new Error();
+      const guardada = await res.json();
+      if (id) {
+        tarjetas = tarjetas.map((t) => t.id === id ? { ...t, ...guardada, fechaLimite: guardada.fechaLimite ?? null } : t);
+      } else {
+        tarjetas.push({ ...guardada, fechaLimite: guardada.fechaLimite ?? null });
+      }
+      cerrarModal();
+      renderizar();
+      marcarSync('sincronizado');
+    } catch {
+      marcarSync('error');
+      alert('Error al guardar');
+    }
+  });
+
+  btnBorrar.addEventListener('click', async () => {
+    const id = (document.getElementById('t-id') as HTMLInputElement).value;
+    if (!id) return;
+    if (!confirm('¿Eliminar tarjeta?')) return;
+    tarjetas = tarjetas.filter((t) => t.id !== id);
+    cerrarModal();
+    renderizar();
+    if (modoDemo) return;
+    marcarSync('guardando');
+    try {
+      const res = await fetch(`/api/kanban/tarjetas/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      marcarSync('sincronizado');
+    } catch { marcarSync('error'); }
+  });
+
+  // ══════════════════ Columnas ══════════════════
+  async function nuevaColumna() {
+    const titulo = prompt('Nombre de la columna:');
+    if (!titulo) return;
+    if (modoDemo) {
+      const id = 'demo-col-' + Math.random().toString(36).slice(2, 7);
+      columnas.push({ id, titulo, color: 'carbon', orden: columnas.length });
+      renderizar();
+      return;
+    }
+    try {
+      const res = await fetch('/api/kanban/columnas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo, color: 'carbon' }),
+      });
+      if (!res.ok) throw new Error();
+      const col = await res.json();
+      columnas.push(col);
+      renderizar();
+    } catch { alert('Error al crear columna'); }
+  }
+
+  async function menuColumna(id: string) {
+    const accion = prompt('Acción: r = renombrar · c = color · d = eliminar');
+    if (!accion) return;
+    if (accion === 'r') {
+      const titulo = prompt('Nuevo título:');
+      if (!titulo) return;
+      columnas = columnas.map((c) => c.id === id ? { ...c, titulo } : c);
+      renderizar();
+      if (!modoDemo) await fetch(`/api/kanban/columnas/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo }) });
+    } else if (accion === 'c') {
+      const color = prompt('Color: carbon, violeta, emerald, amber, red, cyan');
+      if (!color) return;
+      columnas = columnas.map((c) => c.id === id ? { ...c, color } : c);
+      renderizar();
+      if (!modoDemo) await fetch(`/api/kanban/columnas/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color }) });
+    } else if (accion === 'd') {
+      if (!confirm('¿Eliminar columna y tarjetas?')) return;
+      columnas = columnas.filter((c) => c.id !== id);
+      tarjetas = tarjetas.filter((t) => t.columnaId !== id);
+      renderizar();
+      if (!modoDemo) await fetch(`/api/kanban/columnas/${id}`, { method: 'DELETE' });
+    }
+  }
+
+  // ══════════════════ Filtro ══════════════════
+  (document.getElementById('filtro-proyecto') as HTMLSelectElement).addEventListener('change', (e) => {
+    filtroProyecto = (e.target as HTMLSelectElement).value;
+    renderizar();
+  });
+
+  // ══════════════════ Polling ══════════════════
+  const estadoSync = document.getElementById('estado-sync')!;
+  const estadoSyncTexto = document.getElementById('estado-sync-texto')!;
+  function marcarSync(estado: 'sincronizado' | 'guardando' | 'error' | 'actualizando') {
+    const punto = estadoSync.querySelector('span')!;
+    punto.className = 'h-2 w-2 rounded-full ' + (
+      estado === 'sincronizado' ? 'bg-emerald-400'
+      : estado === 'guardando' ? 'bg-amber-400 animate-pulse'
+      : estado === 'actualizando' ? 'bg-violeta-400 animate-pulse'
+      : 'bg-red-400'
+    );
+    estadoSyncTexto.textContent = {
+      sincronizado: 'Sincronizado',
+      guardando: 'Guardando...',
+      actualizando: 'Actualizando...',
+      error: 'Error — reintenta',
+    }[estado];
+  }
+
+  async function poll() {
+    if (modoDemo) return;
+    if (arrastrando || modalAbierto) return;
+    try {
+      const res = await fetch('/api/kanban');
+      if (!res.ok) return;
+      const fresco = await res.json();
+      // Detectar cambios
+      const cambio =
+        JSON.stringify(fresco.columnas) !== JSON.stringify(columnas) ||
+        JSON.stringify(fresco.tarjetas) !== JSON.stringify(tarjetas);
+      if (cambio) {
+        marcarSync('actualizando');
+        columnas = fresco.columnas;
+        tarjetas = fresco.tarjetas;
+        renderizar();
+        setTimeout(() => marcarSync('sincronizado'), 600);
+      }
+    } catch { /* silencioso */ }
+  }
+
+  setInterval(poll, 8000);
+  // Primer poll al ganar foco
+  window.addEventListener('focus', poll);
+
+  // Init
+  renderizar();
+</script>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

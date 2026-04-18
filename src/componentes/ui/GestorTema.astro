@@ -1,0 +1,14 @@
+---
+// Script inline (sin flash): aplica tema guardado ANTES del primer pintado.
+// Colocar en <head> para evitar flash de color incorrecto.
+---
+<script is:inline>
+  (function () {
+    try {
+      var t = localStorage.getItem('kaladim-tema') || 'violeta';
+      document.documentElement.setAttribute('data-tema', t);
+    } catch (e) {
+      document.documentElement.setAttribute('data-tema', 'violeta');
+    }
+  })();
+</script>

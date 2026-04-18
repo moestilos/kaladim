@@ -1,0 +1,10 @@
+---
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import FormularioCliente from '../../../componentes/admin/FormularioCliente.astro';
+export const prerender = false;
+---
+<LayoutAdmin titulo="Nuevo cliente" subtitulo="Añadir empresa al sistema">
+  <EncabezadoSeccion titulo="Nuevo cliente" descripcion="Todos los campos con * son obligatorios" />
+  <FormularioCliente modo="crear" />
+</LayoutAdmin>

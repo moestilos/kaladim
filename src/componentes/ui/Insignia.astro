@@ -1,0 +1,14 @@
+---
+interface Props {
+  variante?: 'exito' | 'advertencia' | 'error' | 'info' | 'neutro';
+}
+const { variante = 'neutro' } = Astro.props;
+const clase = {
+  exito: 'badge-exito',
+  advertencia: 'badge-advertencia',
+  error: 'badge-error',
+  info: 'badge-info',
+  neutro: 'badge-neutro',
+}[variante];
+---
+<span class={clase}><slot /></span>

@@ -1,0 +1,226 @@
+---
+// Hero — layout split: texto + preview producto. Estilo SaaS premium.
+---
+
+<section class="relative overflow-hidden pt-16 pb-24 sm:pt-24 sm:pb-32">
+  <!-- Fondo: grid + gradientes (constelación detrás via layout) -->
+  <div class="absolute inset-0 fondo-grid pointer-events-none opacity-60"></div>
+  <div class="absolute top-1/2 -translate-y-1/2 left-0 h-[500px] w-[500px] bg-radial-acento pointer-events-none opacity-70"></div>
+
+  <div class="contenedor relative">
+    <div class="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
+
+      <!-- ─── Columna texto ─── -->
+      <div class="relative">
+        <!-- Badge minimalista -->
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violeta-500/25 bg-violeta-500/[0.08] backdrop-blur-sm animate-aparecer">
+          <span class="flex h-1.5 w-1.5">
+            <span class="animate-ping absolute inline-flex h-1.5 w-1.5 rounded-full bg-violeta-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-violeta-400"></span>
+          </span>
+          <span class="text-xs font-medium text-violeta-200">v2.1</span>
+          <span class="h-3 w-px bg-violeta-500/30"></span>
+          <span class="text-xs text-carbon-300">Nueva integración · n8n Cloud</span>
+          <svg class="h-3 w-3 text-carbon-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <!-- Título -->
+        <h1 class="mt-7 text-4xl sm:text-5xl lg:text-[4.25rem] font-display font-semibold leading-[1.02] tracking-[-0.025em] text-white animate-aparecer delay-100">
+          Infraestructura digital
+          <span class="block mt-1">
+            <span class="texto-gradiente">que escala tu negocio</span>
+          </span>
+        </h1>
+
+        <!-- Subtítulo -->
+        <p class="mt-6 text-lg text-carbon-300 leading-relaxed max-w-xl animate-aparecer delay-200">
+          Kaladim diseña y construye <span class="text-white font-medium">webs de alto rendimiento</span>
+          y <span class="text-white font-medium">automatizaciones con n8n</span> para equipos que no pueden permitirse perder tiempo en tareas repetitivas.
+        </p>
+
+        <!-- CTAs -->
+        <div class="mt-9 flex flex-col sm:flex-row gap-3 animate-aparecer delay-300">
+          <a href="#contacto" class="btn-primario">
+            Reservar llamada
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a href="#servicios" class="btn-secundario">
+            Ver servicios
+          </a>
+        </div>
+
+        <!-- Prueba social / logos -->
+        <div class="mt-14 animate-aparecer delay-500">
+          <p class="text-xs uppercase tracking-[0.2em] text-carbon-500 mb-5">Confían en nosotros</p>
+          <div class="flex flex-wrap items-center gap-x-8 gap-y-4 text-carbon-400">
+            <!-- Logos placeholder estilo wordmark -->
+            <div class="flex items-center gap-2 opacity-70 hover:opacity-100 transition">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 20h20L12 2z"/></svg>
+              <span class="font-display font-semibold tracking-tight">Acme</span>
+            </div>
+            <div class="flex items-center gap-2 opacity-70 hover:opacity-100 transition">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+              <span class="font-display font-semibold tracking-tight">Northwind</span>
+            </div>
+            <div class="flex items-center gap-2 opacity-70 hover:opacity-100 transition">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+              <span class="font-display font-semibold tracking-tight">Velocity</span>
+            </div>
+            <div class="flex items-center gap-2 opacity-70 hover:opacity-100 transition">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3L3 9l9 6 9-6-9-6zM3 15l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="font-display font-semibold tracking-tight">Stratum</span>
+            </div>
+            <div class="flex items-center gap-2 opacity-70 hover:opacity-100 transition">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5" opacity="0.6"/></svg>
+              <span class="font-display font-semibold tracking-tight">Lumen</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Columna preview producto (oculto en móvil pequeño) ─── -->
+      <div class="relative animate-aparecer delay-300 hidden sm:block">
+        <!-- Glow detrás -->
+        <div class="absolute -inset-8 bg-violeta-600/20 blur-3xl pointer-events-none"></div>
+
+        <!-- Ventana tipo navegador -->
+        <div class="relative rounded-2xl border border-carbon-700/80 bg-carbon-900/90 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden">
+          <!-- Barra superior -->
+          <div class="flex items-center gap-2 px-4 py-3 border-b border-carbon-800 bg-carbon-950/60">
+            <div class="flex gap-1.5">
+              <span class="h-3 w-3 rounded-full bg-carbon-700"></span>
+              <span class="h-3 w-3 rounded-full bg-carbon-700"></span>
+              <span class="h-3 w-3 rounded-full bg-carbon-700"></span>
+            </div>
+            <div class="flex-1 flex justify-center">
+              <div class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-carbon-800 text-xs text-carbon-400 font-mono">
+                <svg class="h-3 w-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 00-3 3v4H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2h-3V4a3 3 0 00-3-3z"/></svg>
+                panel.kaladim.com
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-carbon-500">● live</span>
+          </div>
+
+          <!-- Contenido dashboard mock -->
+          <div class="p-5 space-y-4">
+            <!-- Header interno -->
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs text-carbon-500">Automatización</div>
+                <div class="text-sm font-semibold text-white mt-0.5">Sync CRM → Slack</div>
+              </div>
+              <span class="badge-exito text-[10px]">● activa</span>
+            </div>
+
+            <!-- Métricas fila -->
+            <div class="grid grid-cols-3 gap-2">
+              <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-2.5">
+                <div class="text-[10px] text-carbon-500 uppercase tracking-wider">Ejecuciones</div>
+                <div class="text-lg font-display font-bold text-white mt-1">2,847</div>
+              </div>
+              <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-2.5">
+                <div class="text-[10px] text-carbon-500 uppercase tracking-wider">Éxito</div>
+                <div class="text-lg font-display font-bold text-emerald-400 mt-1">99.8%</div>
+              </div>
+              <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-2.5">
+                <div class="text-[10px] text-carbon-500 uppercase tracking-wider">Ahorrado</div>
+                <div class="text-lg font-display font-bold text-violeta-300 mt-1">142h</div>
+              </div>
+            </div>
+
+            <!-- Gráfica sparkline SVG -->
+            <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-4">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs text-carbon-400">Últimos 30 días</span>
+                <span class="text-xs text-emerald-400 font-mono">+23.4%</span>
+              </div>
+              <svg viewBox="0 0 300 60" class="w-full h-14" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="grad-hero" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgb(var(--acento-400))" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="rgb(var(--acento-400))" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M0,45 L20,40 L40,42 L60,35 L80,38 L100,30 L120,25 L140,28 L160,20 L180,22 L200,15 L220,18 L240,12 L260,14 L280,8 L300,10"
+                  fill="none"
+                  stroke="rgb(var(--acento-400))"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M0,45 L20,40 L40,42 L60,35 L80,38 L100,30 L120,25 L140,28 L160,20 L180,22 L200,15 L220,18 L240,12 L260,14 L280,8 L300,10 L300,60 L0,60 Z"
+                  fill="url(#grad-hero)"
+                />
+                <circle cx="300" cy="10" r="3" fill="rgb(var(--acento-300))">
+                  <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite"/>
+                </circle>
+              </svg>
+            </div>
+
+            <!-- Lista eventos -->
+            <div class="space-y-1.5">
+              {[
+                { t: 'Webhook recibido', h: 'hace 12s', ok: true },
+                { t: 'Cliente creado en HubSpot', h: 'hace 14s', ok: true },
+                { t: 'Notificación enviada a #ventas', h: 'hace 15s', ok: true },
+              ].map((e) => (
+                <div class="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-carbon-950/40">
+                  <span class={`h-1.5 w-1.5 rounded-full ${e.ok ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                  <span class="text-carbon-200 flex-1">{e.t}</span>
+                  <span class="text-carbon-500 font-mono">{e.h}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <!-- Badges flotantes alrededor del panel -->
+        <div class="hidden lg:flex absolute -left-6 top-1/4 items-center gap-2 px-3 py-2 rounded-lg border border-carbon-700 bg-carbon-900/95 backdrop-blur shadow-xl animate-flotar">
+          <div class="h-7 w-7 rounded-md bg-violeta-600/20 grid place-items-center">
+            <svg class="h-4 w-4 text-violeta-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="text-[10px] text-carbon-500 uppercase tracking-wider">Uptime</div>
+            <div class="text-sm font-semibold text-white">99.98%</div>
+          </div>
+        </div>
+
+        <div class="hidden lg:flex absolute -right-4 bottom-8 items-center gap-2 px-3 py-2 rounded-lg border border-carbon-700 bg-carbon-900/95 backdrop-blur shadow-xl animate-flotar" style="animation-delay: 1.5s">
+          <div class="h-7 w-7 rounded-md bg-emerald-500/20 grid place-items-center">
+            <svg class="h-4 w-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <div class="text-[10px] text-carbon-500 uppercase tracking-wider">ROI medio</div>
+            <div class="text-sm font-semibold text-white">+312%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats bar horizontal debajo -->
+    <div class="mt-24 pt-10 border-t border-carbon-800/60 animate-aparecer" style="animation-delay: 0.7s">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-8">
+        {[
+          { num: '50+',  label: 'Proyectos entregados' },
+          { num: '30+',  label: 'Clientes activos' },
+          { num: '10k+', label: 'Horas automatizadas' },
+          { num: '99.9%',label: 'Uptime garantizado' },
+        ].map((m) => (
+          <div>
+            <div class="text-3xl sm:text-4xl font-display font-bold text-white tracking-tight">{m.num}</div>
+            <div class="text-xs text-carbon-400 mt-1.5 uppercase tracking-wider">{m.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <!-- Fade inferior hacia siguiente sección -->
+  <div class="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-carbon-950 to-transparent pointer-events-none"></div>
+</section>

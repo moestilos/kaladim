@@ -1,0 +1,294 @@
+---
+// Paleta de comandos (Cmd/Ctrl+K) — navegación + selector de tema.
+// Estilo command-palette con búsqueda, keyboard-nav, grupos.
+---
+
+<!-- Trigger oculto — clickeado por botón en el nav -->
+<button id="btn-abrir-paleta" type="button" class="hidden" aria-hidden="true"></button>
+
+<!-- Modal -->
+<div
+  id="paleta-comandos"
+  class="fixed inset-0 z-[100] hidden items-start justify-center pt-[10vh] px-4"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Paleta de comandos"
+>
+  <!-- Fondo -->
+  <div id="paleta-fondo" class="absolute inset-0 bg-carbon-950/70 backdrop-blur-md"></div>
+
+  <!-- Contenedor -->
+  <div class="relative w-full max-w-xl animate-modal-in">
+    <div class="rounded-2xl border border-carbon-700 bg-carbon-900/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden">
+      <!-- Búsqueda -->
+      <div class="flex items-center gap-3 px-4 py-3 border-b border-carbon-800">
+        <svg class="h-4 w-4 text-carbon-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/>
+        </svg>
+        <input
+          id="paleta-input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Buscar sección, tema o acción..."
+          class="flex-1 bg-transparent text-sm text-white placeholder:text-carbon-500 focus:outline-none"
+        />
+        <kbd class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-carbon-800 border border-carbon-700 text-carbon-400">ESC</kbd>
+      </div>
+
+      <!-- Lista -->
+      <div id="paleta-lista" class="max-h-[60vh] overflow-y-auto p-2"></div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between px-4 py-2.5 border-t border-carbon-800 bg-carbon-950/50 text-[11px] text-carbon-500">
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1">
+            <kbd class="font-mono px-1.5 py-0.5 rounded bg-carbon-800 border border-carbon-700">↑↓</kbd>
+            navegar
+          </span>
+          <span class="flex items-center gap-1">
+            <kbd class="font-mono px-1.5 py-0.5 rounded bg-carbon-800 border border-carbon-700">↵</kbd>
+            abrir
+          </span>
+          <span class="flex items-center gap-1">
+            <kbd class="font-mono px-1.5 py-0.5 rounded bg-carbon-800 border border-carbon-700">ESC</kbd>
+            cerrar
+          </span>
+        </div>
+        <span class="font-mono">kaladim.cmd</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  type Comando = {
+    id: string;
+    titulo: string;
+    descripcion?: string;
+    grupo: string;
+    icono: string; // nombre
+    accion: () => void;
+    colorChip?: string;
+  };
+
+  const TEMAS: { id: string; nombre: string; preview: string }[] = [
+    { id: 'violeta',  nombre: 'Violeta',  preview: 'rgb(124 58 237)'  },
+    { id: 'neon',     nombre: 'Verde neón', preview: 'rgb(34 197 94)'  },
+    { id: 'verde',    nombre: 'Verde esmeralda', preview: 'rgb(5 150 105)' },
+    { id: 'cian',     nombre: 'Cian',     preview: 'rgb(6 182 212)'   },
+    { id: 'azul',     nombre: 'Azul',     preview: 'rgb(37 99 235)'   },
+    { id: 'rosa',     nombre: 'Rosa',     preview: 'rgb(219 39 119)'  },
+    { id: 'amarillo', nombre: 'Amarillo', preview: 'rgb(234 179 8)'   },
+    { id: 'naranja',  nombre: 'Naranja',  preview: 'rgb(249 115 22)'  },
+    { id: 'rojo',     nombre: 'Rojo',     preview: 'rgb(220 38 38)'   },
+  ];
+
+  function aplicarTema(id: string) {
+    document.documentElement.setAttribute('data-tema', id);
+    try { localStorage.setItem('kaladim-tema', id); } catch {}
+    window.dispatchEvent(new CustomEvent('tema-cambiado', { detail: id }));
+  }
+
+  function navegar(href: string) {
+    if (href.startsWith('http')) window.open(href, '_blank');
+    else window.location.href = href;
+  }
+
+  const comandos: Comando[] = [
+    // Secciones públicas
+    { id: 'nav-inicio',     grupo: 'Navegación', icono: 'home',    titulo: 'Inicio',             descripcion: 'Portada',              accion: () => navegar('/') },
+    { id: 'nav-servicios',  grupo: 'Navegación', icono: 'grid',    titulo: 'Servicios',          descripcion: 'Webs y automatizaciones', accion: () => navegar('/#servicios') },
+    { id: 'nav-casos',      grupo: 'Navegación', icono: 'panel',   titulo: 'Casos de estudio',   descripcion: 'Proyectos reales',     accion: () => navegar('/#casos') },
+    { id: 'nav-auto',       grupo: 'Navegación', icono: 'rayo',    titulo: 'Automatizaciones n8n', descripcion: 'Flujos inteligentes', accion: () => navegar('/#automatizaciones') },
+    { id: 'nav-proceso',    grupo: 'Navegación', icono: 'ruta',    titulo: 'Cómo trabajamos',    descripcion: 'Nuestro proceso',      accion: () => navegar('/#proceso') },
+    { id: 'nav-contacto',   grupo: 'Navegación', icono: 'email',   titulo: 'Contacto',           descripcion: 'Hablemos',             accion: () => navegar('/#contacto') },
+    { id: 'nav-entrar',     grupo: 'Navegación', icono: 'login',   titulo: 'Acceder al panel',   descripcion: 'Login con Google',     accion: () => navegar('/entrar') },
+
+    // Temas (dinámicos)
+    ...TEMAS.map((t) => ({
+      id: 'tema-' + t.id,
+      grupo: 'Tema de color',
+      icono: 'paleta',
+      titulo: 'Tema: ' + t.nombre,
+      descripcion: 'Cambiar acento a ' + t.nombre.toLowerCase(),
+      accion: () => aplicarTema(t.id),
+      colorChip: t.preview,
+    })),
+
+    // Acciones admin (solo útiles si logueado, pero listadas igual)
+    { id: 'admin-dashboard', grupo: 'Panel admin', icono: 'panel',  titulo: 'Dashboard',         descripcion: 'Resumen general',       accion: () => navegar('/admin') },
+    { id: 'admin-clientes',  grupo: 'Panel admin', icono: 'usuario',titulo: 'Clientes',          descripcion: 'Gestión empresas',      accion: () => navegar('/admin/clientes') },
+    { id: 'admin-proyectos', grupo: 'Panel admin', icono: 'carpeta',titulo: 'Proyectos',         descripcion: 'Entregables',           accion: () => navegar('/admin/proyectos') },
+    { id: 'admin-kanban',    grupo: 'Panel admin', icono: 'grid',   titulo: 'Kanban',            descripcion: 'Gesti\u00f3n tipo Trello',     accion: () => navegar('/admin/kanban') },
+    { id: 'admin-leads',     grupo: 'Panel admin', icono: 'bandeja',titulo: 'Leads',             descripcion: 'Pipeline comercial',    accion: () => navegar('/admin/leads') },
+
+    // Externos
+    { id: 'ext-email',       grupo: 'Contacto rápido', icono: 'email', titulo: 'Enviar email',  descripcion: 'hola@kaladim.com',     accion: () => navegar('mailto:hola@kaladim.com') },
+  ];
+
+  const ICONOS: Record<string, string> = {
+    home:    '<path d="M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10" stroke-linecap="round" stroke-linejoin="round"/>',
+    grid:    '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+    rayo:    '<path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" stroke-linecap="round" stroke-linejoin="round"/>',
+    ruta:    '<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h4a4 4 0 000-8h-0a4 4 0 010-8h4" stroke-linecap="round"/>',
+    email:   '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7" stroke-linecap="round"/>',
+    login:   '<path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" stroke-linecap="round" stroke-linejoin="round"/>',
+    paleta:  '<circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="12" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="10" r="1" fill="currentColor"/>',
+    panel:   '<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
+    usuario: '<circle cx="12" cy="8" r="3.5"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke-linecap="round"/>',
+    carpeta: '<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>',
+    bandeja: '<path d="M3 13l2-8h14l2 8M3 13v7h18v-7M3 13h6l2 2h2l2-2h6"/>',
+  };
+
+  const modal = document.getElementById('paleta-comandos') as HTMLDivElement;
+  const fondo = document.getElementById('paleta-fondo') as HTMLDivElement;
+  const input = document.getElementById('paleta-input') as HTMLInputElement;
+  const lista = document.getElementById('paleta-lista') as HTMLDivElement;
+  const btnAbrir = document.getElementById('btn-abrir-paleta') as HTMLButtonElement;
+
+  let indiceActivo = 0;
+  let resultados: Comando[] = comandos.slice();
+
+  function abrir() {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    input.value = '';
+    resultados = comandos.slice();
+    indiceActivo = 0;
+    renderizar();
+    setTimeout(() => input.focus(), 10);
+    document.body.style.overflow = 'hidden';
+  }
+
+  function cerrar() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.style.overflow = '';
+  }
+
+  function filtrar(q: string) {
+    const qn = q.trim().toLowerCase();
+    if (!qn) return comandos.slice();
+    return comandos.filter((c) =>
+      (c.titulo + ' ' + (c.descripcion ?? '') + ' ' + c.grupo).toLowerCase().includes(qn),
+    );
+  }
+
+  function renderizar() {
+    if (resultados.length === 0) {
+      lista.innerHTML = `<div class="px-4 py-10 text-center text-sm text-carbon-500">Sin resultados para "<span class="text-white">${input.value}</span>"</div>`;
+      return;
+    }
+
+    let html = '';
+    let ultimoGrupo = '';
+    resultados.forEach((c, i) => {
+      if (c.grupo !== ultimoGrupo) {
+        if (ultimoGrupo !== '') html += '</div>';
+        html += `<div class="pt-2 pb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-carbon-500">${c.grupo}</div><div>`;
+        ultimoGrupo = c.grupo;
+      }
+      const activo = i === indiceActivo;
+      const iconoSvg = ICONOS[c.icono] ?? '';
+      const chip = c.colorChip
+        ? `<span class="h-5 w-5 rounded-md border border-white/10 shrink-0" style="background:${c.colorChip}"></span>`
+        : `<span class="h-8 w-8 rounded-lg grid place-items-center shrink-0 ${activo ? 'bg-violeta-600/20 text-violeta-300 border border-violeta-500/30' : 'bg-carbon-800 text-carbon-400 border border-carbon-700'}">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${iconoSvg}</svg>
+          </span>`;
+
+      html += `
+        <button
+          type="button"
+          data-indice="${i}"
+          class="item-comando w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${activo ? 'bg-violeta-600/10 border border-violeta-500/30' : 'border border-transparent hover:bg-carbon-800/50'}"
+        >
+          ${chip}
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium ${activo ? 'text-white' : 'text-carbon-100'} truncate">${c.titulo}</div>
+            ${c.descripcion ? `<div class="text-xs text-carbon-500 truncate">${c.descripcion}</div>` : ''}
+          </div>
+          <svg class="h-3.5 w-3.5 text-carbon-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M7 17L17 7M17 7H7m10 0v10" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>`;
+    });
+    html += '</div>';
+    lista.innerHTML = html;
+
+    // Bind clicks
+    lista.querySelectorAll<HTMLButtonElement>('.item-comando').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.indice);
+        ejecutar(idx);
+      });
+      btn.addEventListener('mouseenter', () => {
+        indiceActivo = Number(btn.dataset.indice);
+        actualizarActivo();
+      });
+    });
+
+    // Scroll al activo
+    const activoEl = lista.querySelector<HTMLElement>('.item-comando.bg-violeta-600\\/10');
+    activoEl?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function actualizarActivo() {
+    lista.querySelectorAll<HTMLButtonElement>('.item-comando').forEach((btn) => {
+      const idx = Number(btn.dataset.indice);
+      if (idx === indiceActivo) {
+        btn.classList.add('bg-violeta-600/10', 'border-violeta-500/30');
+        btn.classList.remove('border-transparent', 'hover:bg-carbon-800/50');
+      } else {
+        btn.classList.remove('bg-violeta-600/10', 'border-violeta-500/30');
+        btn.classList.add('border-transparent', 'hover:bg-carbon-800/50');
+      }
+    });
+    const activoEl = lista.querySelector<HTMLElement>(`.item-comando[data-indice="${indiceActivo}"]`);
+    activoEl?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function ejecutar(idx: number) {
+    const c = resultados[idx];
+    if (!c) return;
+    cerrar();
+    setTimeout(() => c.accion(), 50);
+  }
+
+  // Eventos
+  btnAbrir.addEventListener('click', abrir);
+  fondo.addEventListener('click', cerrar);
+
+  input.addEventListener('input', () => {
+    resultados = filtrar(input.value);
+    indiceActivo = 0;
+    renderizar();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const modalAbierto = !modal.classList.contains('hidden');
+
+    // Abrir con Cmd/Ctrl+K
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      modalAbierto ? cerrar() : abrir();
+      return;
+    }
+
+    if (!modalAbierto) return;
+
+    if (e.key === 'Escape') { e.preventDefault(); cerrar(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      indiceActivo = Math.min(indiceActivo + 1, resultados.length - 1);
+      actualizarActivo();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      indiceActivo = Math.max(indiceActivo - 1, 0);
+      actualizarActivo();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      ejecutar(indiceActivo);
+    }
+  });
+</script>

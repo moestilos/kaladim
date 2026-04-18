@@ -1,0 +1,56 @@
+---
+const fases = [
+  {
+    num: '01',
+    titulo: 'Descubrimiento',
+    descripcion: 'Reunión gratuita para entender tu negocio, objetivos y puntos de dolor. Salimos con un plan claro.',
+    duracion: '1-2 días',
+  },
+  {
+    num: '02',
+    titulo: 'Propuesta y diseño',
+    descripcion: 'Mockups, arquitectura técnica y cronograma. Nada avanza sin tu OK explícito.',
+    duracion: '3-7 días',
+  },
+  {
+    num: '03',
+    titulo: 'Desarrollo iterativo',
+    descripcion: 'Sprints semanales con demos. Ves progreso real cada 7 días, no al final.',
+    duracion: '2-8 semanas',
+  },
+  {
+    num: '04',
+    titulo: 'Lanzamiento + soporte',
+    descripcion: 'Deploy, formación de tu equipo y soporte continuo post-lanzamiento.',
+    duracion: 'Continuo',
+  },
+];
+---
+
+<section id="proceso" class="seccion">
+  <div class="contenedor">
+    <div class="max-w-2xl mx-auto text-center">
+      <span class="text-sm font-semibold text-violeta-400 uppercase tracking-wider">Cómo trabajamos</span>
+      <h2 class="mt-3 text-4xl sm:text-5xl font-display font-bold text-white">
+        Proceso transparente, <span class="texto-gradiente">entregables reales</span>
+      </h2>
+      <p class="mt-4 text-lg text-carbon-300">
+        Sin cajas negras ni sorpresas. Sabes qué entregamos, cuándo y por qué.
+      </p>
+    </div>
+
+    <div class="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {fases.map((f, i) => (
+        <div class="relative tarjeta-interactiva p-6">
+          <div class="text-5xl font-display font-bold text-violeta-600/30">{f.num}</div>
+          <h3 class="mt-2 text-lg font-display font-semibold text-white">{f.titulo}</h3>
+          <p class="mt-2 text-sm text-carbon-400">{f.descripcion}</p>
+          <div class="mt-4 text-xs font-mono text-violeta-300">⏱ {f.duracion}</div>
+          {i < fases.length - 1 && (
+            <div class="hidden lg:block absolute top-1/2 -right-3 text-violeta-500/40 text-2xl">→</div>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

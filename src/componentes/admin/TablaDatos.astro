@@ -1,0 +1,138 @@
+---
+// Tabla de datos reutilizable con búsqueda client-side.
+interface Columna {
+  clave: string;
+  etiqueta: string;
+  formato?: 'texto' | 'fecha' | 'moneda' | 'badge';
+}
+
+interface Props {
+  columnas: Columna[];
+  filas: Record<string, any>[];
+  rutaEditar?: (fila: any) => string;
+  rutaEliminar?: string; // endpoint DELETE /api/xxx/:id
+  mensajeVacio?: string;
+  placeholderBusqueda?: string;
+}
+
+const {
+  columnas,
+  filas,
+  rutaEditar,
+  rutaEliminar,
+  mensajeVacio = 'Sin registros todavía.',
+  placeholderBusqueda = 'Buscar...',
+} = Astro.props;
+---
+
+<div class="tarjeta overflow-hidden">
+  <div class="p-4 border-b border-carbon-800 flex items-center gap-3">
+    <div class="relative flex-1 max-w-xs">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-carbon-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/>
+      </svg>
+      <input
+        id="input-busqueda-tabla"
+        type="text"
+        placeholder={placeholderBusqueda}
+        class="input pl-9 py-2 text-sm"
+      />
+    </div>
+    <span id="contador-filas" class="text-xs text-carbon-500 ml-auto">{filas.length} registros</span>
+  </div>
+
+  {filas.length === 0 ? (
+    <div class="p-12 text-center text-carbon-400 text-sm">{mensajeVacio}</div>
+  ) : (
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-carbon-800 text-xs uppercase tracking-wider text-carbon-400">
+            {columnas.map((c) => (
+              <th class="text-left px-4 py-3 font-medium">{c.etiqueta}</th>
+            ))}
+            {(rutaEditar || rutaEliminar) && <th class="w-24"></th>}
+          </tr>
+        </thead>
+        <tbody id="cuerpo-tabla">
+          {filas.map((f) => (
+            <tr class="border-b border-carbon-800/50 hover:bg-carbon-900/50 transition fila-tabla" data-busqueda={Object.values(f).join(' ').toLowerCase()}>
+              {columnas.map((c) => (
+                <td class="px-4 py-3 text-carbon-200">
+                  {c.formato === 'fecha' && f[c.clave]
+                    ? new Date(f[c.clave]).toLocaleDateString('es-ES')
+                    : c.formato === 'moneda' && f[c.clave] != null
+                    ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(f[c.clave]))
+                    : f[c.clave] ?? '—'}
+                </td>
+              ))}
+              {(rutaEditar || rutaEliminar) && (
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-1 justify-end">
+                    {rutaEditar && (
+                      <a href={rutaEditar(f)} class="p-1.5 rounded hover:bg-carbon-800 text-carbon-400 hover:text-violeta-300" title="Editar">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M12 20h9M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </a>
+                    )}
+                    {rutaEliminar && (
+                      <button
+                        type="button"
+                        data-id={f.id}
+                        data-endpoint={rutaEliminar}
+                        class="boton-eliminar p-1.5 rounded hover:bg-red-500/10 text-carbon-400 hover:text-red-400"
+                        title="Eliminar"
+                      >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6M5 6l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
+
+<script>
+  // Búsqueda client-side
+  const input = document.getElementById('input-busqueda-tabla') as HTMLInputElement;
+  const filas = document.querySelectorAll('.fila-tabla') as NodeListOf<HTMLElement>;
+  const contador = document.getElementById('contador-filas');
+
+  input?.addEventListener('input', () => {
+    const q = input.value.toLowerCase();
+    let visibles = 0;
+    filas.forEach((f) => {
+      const texto = f.dataset.busqueda ?? '';
+      const mostrar = texto.includes(q);
+      f.style.display = mostrar ? '' : 'none';
+      if (mostrar) visibles++;
+    });
+    if (contador) contador.textContent = `${visibles} registros`;
+  });
+
+  // Eliminar con confirmación
+  document.querySelectorAll('.boton-eliminar').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const elemento = btn as HTMLButtonElement;
+      const id = elemento.dataset.id;
+      const endpoint = elemento.dataset.endpoint;
+      if (!id || !endpoint) return;
+      if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+      try {
+        const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error();
+        location.reload();
+      } catch {
+        alert('Error al eliminar');
+      }
+    });
+  });
+</script>

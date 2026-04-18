@@ -1,0 +1,67 @@
+---
+import '../estilos/global.css';
+import BarraLateral from '../componentes/admin/BarraLateral.astro';
+import GestorTema from '../componentes/ui/GestorTema.astro';
+import PaletaComandos from '../componentes/ui/PaletaComandos.astro';
+
+interface Props {
+  titulo?: string;
+  subtitulo?: string;
+}
+const { titulo = 'Panel — Kaladim', subtitulo } = Astro.props;
+
+const usuario = Astro.locals.usuario;
+const rutaActual = new URL(Astro.request.url).pathname;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{titulo}</title>
+    <GestorTema />
+  </head>
+  <body>
+    <BarraLateral usuario={usuario} rutaActual={rutaActual} />
+    <div class="lg:pl-64 min-h-screen">
+      <header class="sticky top-0 z-30 border-b border-carbon-800 bg-carbon-950/80 backdrop-blur-xl">
+        <div class="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+          <div class="min-w-0 pl-12 lg:pl-0">
+            <h1 class="text-base sm:text-lg font-semibold text-white truncate">{titulo}</h1>
+            {subtitulo && <p class="text-xs text-carbon-400 truncate">{subtitulo}</p>}
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              id="btn-menu-admin"
+              class="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-carbon-800/70 hover:bg-carbon-800 border border-carbon-700/60 text-sm text-carbon-200 hover:text-white transition-colors"
+            >
+              <span>Menú</span>
+              <kbd class="flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-carbon-950/70 border border-carbon-700 text-carbon-400">
+                <span class="text-[11px]">⌘</span>K
+              </kbd>
+            </button>
+            <a href="/" class="btn-fantasma text-sm" target="_blank">
+              <span class="hidden sm:inline">Ver web pública</span>
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M7 17L17 7M17 7H7m10 0v10" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+          <script>
+            document.getElementById('btn-menu-admin')?.addEventListener('click', () => {
+              document.getElementById('btn-abrir-paleta')?.click();
+            });
+          </script>
+        </div>
+      </header>
+
+      <main class="p-4 sm:p-6 lg:p-8">
+        <slot />
+      </main>
+    </div>
+    <PaletaComandos />
+  </body>
+</html>

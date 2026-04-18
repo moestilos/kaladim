@@ -1,0 +1,23 @@
+---
+interface Props {
+  titulo: string;
+  descripcion?: string;
+  hrefNuevo?: string;
+  textoNuevo?: string;
+}
+const { titulo, descripcion, hrefNuevo, textoNuevo = 'Nuevo' } = Astro.props;
+---
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-display font-bold text-white">{titulo}</h1>
+    {descripcion && <p class="text-sm text-carbon-400 mt-1">{descripcion}</p>}
+  </div>
+  {hrefNuevo && (
+    <a href={hrefNuevo} class="btn-primario">
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+      </svg>
+      {textoNuevo}
+    </a>
+  )}
+</div>

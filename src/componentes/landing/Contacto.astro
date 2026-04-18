@@ -1,0 +1,95 @@
+---
+// Formulario captura leads — envía a /api/leads
+---
+
+<section id="contacto" class="seccion relative overflow-hidden">
+  <div class="absolute inset-x-0 top-0 h-96 bg-radial-acento pointer-events-none"></div>
+
+  <div class="contenedor relative">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center">
+        <span class="text-sm font-semibold text-violeta-400 uppercase tracking-wider">Hablemos</span>
+        <h2 class="mt-3 text-4xl sm:text-5xl font-display font-bold text-white">
+          Cuéntanos tu <span class="texto-gradiente">proyecto</span>
+        </h2>
+        <p class="mt-4 text-lg text-carbon-300">
+          Primera llamada gratis · Respuesta en menos de 24h · Sin compromiso
+        </p>
+      </div>
+
+      <form id="formulario-lead" class="mt-12 tarjeta-glass p-8 sm:p-10 grid gap-5">
+        <div class="grid sm:grid-cols-2 gap-5">
+          <div>
+            <label for="nombre" class="etiqueta">Nombre *</label>
+            <input id="nombre" name="nombre" required type="text" class="input" placeholder="Ana García" />
+          </div>
+          <div>
+            <label for="email" class="etiqueta">Email *</label>
+            <input id="email" name="email" required type="email" class="input" placeholder="ana@empresa.com" />
+          </div>
+          <div>
+            <label for="empresa" class="etiqueta">Empresa</label>
+            <input id="empresa" name="empresa" type="text" class="input" placeholder="Acme S.L." />
+          </div>
+          <div>
+            <label for="telefono" class="etiqueta">Teléfono</label>
+            <input id="telefono" name="telefono" type="tel" class="input" placeholder="+34 600 000 000" />
+          </div>
+        </div>
+        <div>
+          <label for="mensaje" class="etiqueta">¿En qué podemos ayudarte? *</label>
+          <textarea id="mensaje" name="mensaje" required rows="4" class="input resize-none"
+            placeholder="Queremos una web corporativa y automatizar nuestro flujo de leads..."></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+          <p class="text-xs text-carbon-500">
+            Al enviar aceptas nuestra política de privacidad. No compartimos tus datos.
+          </p>
+          <button type="submit" class="btn-primario" id="boton-enviar">
+            <span id="texto-boton">Enviar mensaje</span>
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <div id="mensaje-estado" class="hidden"></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<script>
+  const formulario = document.getElementById('formulario-lead') as HTMLFormElement;
+  const estado = document.getElementById('mensaje-estado') as HTMLDivElement;
+  const boton = document.getElementById('boton-enviar') as HTMLButtonElement;
+  const textoBoton = document.getElementById('texto-boton') as HTMLSpanElement;
+
+  formulario?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    boton.disabled = true;
+    textoBoton.textContent = 'Enviando...';
+    estado.className = 'hidden';
+
+    const datos = Object.fromEntries(new FormData(formulario).entries());
+
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) throw new Error('Error al enviar');
+      estado.className = 'rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-4 text-sm';
+      estado.textContent = '✓ Mensaje recibido. Te contactamos en menos de 24h.';
+      formulario.reset();
+    } catch {
+      estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-4 text-sm';
+      estado.textContent = '✗ Hubo un problema. Escríbenos a hola@kaladim.com';
+    } finally {
+      boton.disabled = false;
+      textoBoton.textContent = 'Enviar mensaje';
+    }
+  });
+</script>

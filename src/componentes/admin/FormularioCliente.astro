@@ -1,0 +1,89 @@
+---
+interface Props {
+  cliente?: {
+    id?: string;
+    empresa?: string;
+    contactoNombre?: string;
+    contactoEmail?: string;
+    contactoTelefono?: string | null;
+    sitioWeb?: string | null;
+    sector?: string | null;
+    notas?: string | null;
+  };
+  modo: 'crear' | 'editar';
+}
+const { cliente, modo } = Astro.props;
+const accion = modo === 'crear' ? '/api/clientes' : `/api/clientes/${cliente?.id}`;
+const metodo = modo === 'crear' ? 'POST' : 'PATCH';
+---
+
+<form id="formulario-cliente" class="tarjeta p-8 max-w-3xl grid gap-5" data-accion={accion} data-metodo={metodo}>
+  <div class="grid sm:grid-cols-2 gap-5">
+    <div>
+      <label class="etiqueta" for="empresa">Empresa *</label>
+      <input id="empresa" name="empresa" required type="text" class="input" value={cliente?.empresa ?? ''} />
+    </div>
+    <div>
+      <label class="etiqueta" for="sector">Sector</label>
+      <input id="sector" name="sector" type="text" class="input" value={cliente?.sector ?? ''} />
+    </div>
+    <div>
+      <label class="etiqueta" for="contactoNombre">Nombre de contacto *</label>
+      <input id="contactoNombre" name="contactoNombre" required type="text" class="input" value={cliente?.contactoNombre ?? ''} />
+    </div>
+    <div>
+      <label class="etiqueta" for="contactoEmail">Email de contacto *</label>
+      <input id="contactoEmail" name="contactoEmail" required type="email" class="input" value={cliente?.contactoEmail ?? ''} />
+    </div>
+    <div>
+      <label class="etiqueta" for="contactoTelefono">Teléfono</label>
+      <input id="contactoTelefono" name="contactoTelefono" type="tel" class="input" value={cliente?.contactoTelefono ?? ''} />
+    </div>
+    <div>
+      <label class="etiqueta" for="sitioWeb">Sitio web</label>
+      <input id="sitioWeb" name="sitioWeb" type="url" class="input" value={cliente?.sitioWeb ?? ''} placeholder="https://..." />
+    </div>
+  </div>
+  <div>
+    <label class="etiqueta" for="notas">Notas internas</label>
+    <textarea id="notas" name="notas" rows="4" class="input resize-none">{cliente?.notas ?? ''}</textarea>
+  </div>
+
+  <div id="estado-formulario" class="hidden"></div>
+
+  <div class="flex items-center justify-between pt-4 border-t border-carbon-800">
+    <a href="/admin/clientes" class="btn-fantasma">← Cancelar</a>
+    <button type="submit" class="btn-primario">
+      {modo === 'crear' ? 'Crear cliente' : 'Guardar cambios'}
+    </button>
+  </div>
+</form>
+
+<script>
+  const formulario = document.getElementById('formulario-cliente') as HTMLFormElement;
+  const estado = document.getElementById('estado-formulario') as HTMLDivElement;
+
+  formulario?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const datos = Object.fromEntries(new FormData(formulario).entries());
+    const accion = formulario.dataset.accion!;
+    const metodo = formulario.dataset.metodo!;
+    estado.className = 'hidden';
+
+    try {
+      const res = await fetch(accion, {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Error al guardar');
+      }
+      location.href = '/admin/clientes';
+    } catch (err: any) {
+      estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
+      estado.textContent = '✗ ' + err.message;
+    }
+  });
+</script>

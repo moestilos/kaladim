@@ -1,0 +1,131 @@
+---
+import LayoutAdmin from '../../layouts/LayoutAdmin.astro';
+import TarjetaMetrica from '../../componentes/admin/TarjetaMetrica.astro';
+import GraficaVisitas from '../../componentes/admin/GraficaVisitas.astro';
+import { db, esquema } from '../../lib/db/cliente';
+import { sql } from 'drizzle-orm';
+
+export const prerender = false;
+
+// Métricas — tolerante a falta de DB para poder ver el panel sin Neon en dev.
+let metricas = {
+  clientes: 0,
+  proyectosActivos: 0,
+  automatizacionesActivas: 0,
+  ingresos: 0,
+  leadsNuevos: 0,
+};
+let errorDb: string | null = null;
+
+try {
+  if (import.meta.env.DATABASE_URL) {
+    const [cli] = await db.select({ n: sql<number>`count(*)::int` }).from(esquema.clientes);
+    const [proy] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(esquema.proyectos)
+      .where(sql`estado IN ('en_progreso','en_revision')`);
+    const [auto] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(esquema.automatizaciones)
+      .where(sql`estado = 'activa'`);
+    const [ing] = await db
+      .select({ total: sql<number>`COALESCE(SUM(precio),0)::numeric` })
+      .from(esquema.serviciosContratados);
+    const [lead] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(esquema.leads)
+      .where(sql`procesado = false`);
+
+    metricas = {
+      clientes: cli?.n ?? 0,
+      proyectosActivos: proy?.n ?? 0,
+      automatizacionesActivas: auto?.n ?? 0,
+      ingresos: Number(ing?.total ?? 0),
+      leadsNuevos: lead?.n ?? 0,
+    };
+  } else {
+    errorDb = 'DATABASE_URL no configurada (mostrando valores de ejemplo)';
+    metricas = { clientes: 12, proyectosActivos: 5, automatizacionesActivas: 8, ingresos: 24500, leadsNuevos: 3 };
+  }
+} catch (e) {
+  errorDb = e instanceof Error ? e.message : 'Error desconocido';
+}
+
+const formatoEUR = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+---
+
+<LayoutAdmin titulo="Dashboard" subtitulo="Resumen general de tu agencia">
+  {errorDb && (
+    <div class="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+      ⚠ {errorDb}
+    </div>
+  )}
+
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <TarjetaMetrica etiqueta="Clientes" valor={metricas.clientes} icono="clientes" tendencia="+2 este mes" />
+    <TarjetaMetrica etiqueta="Proyectos activos" valor={metricas.proyectosActivos} icono="proyectos" tendencia="3 entregan este mes" />
+    <TarjetaMetrica etiqueta="Automatizaciones" valor={metricas.automatizacionesActivas} icono="automatizaciones" tendencia="99.2% uptime" />
+    <TarjetaMetrica etiqueta="Ingresos totales" valor={formatoEUR.format(metricas.ingresos)} icono="ingresos" tendencia="+12% vs mes pasado" />
+  </div>
+
+  <!-- Gráfica analytics -->
+  <div class="mt-8">
+    <GraficaVisitas />
+  </div>
+
+  <div class="mt-8 grid gap-6 lg:grid-cols-3">
+    <div class="tarjeta p-6 lg:col-span-2">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-display font-semibold text-white">Actividad reciente</h2>
+        <a href="/admin/proyectos" class="text-sm text-violeta-400 hover:underline">Ver todo →</a>
+      </div>
+      <div class="mt-6 space-y-4">
+        {[
+          { tipo: 'proyecto', texto: 'Nuevo proyecto creado para Acme S.L.', hace: 'hace 2h' },
+          { tipo: 'lead', texto: 'Lead nuevo: María López (Tech Corp)', hace: 'hace 5h' },
+          { tipo: 'auto', texto: 'Automatización "Sync CRM" ejecutada 847 veces', hace: 'hace 1d' },
+          { tipo: 'proyecto', texto: 'Proyecto "Web Constructora XYZ" pasó a revisión', hace: 'hace 2d' },
+        ].map((a) => (
+          <div class="flex items-start gap-3 pb-4 border-b border-carbon-800 last:border-0 last:pb-0">
+            <div class="h-8 w-8 rounded-lg bg-violeta-600/15 grid place-items-center text-violeta-400 text-sm shrink-0">
+              {a.tipo === 'proyecto' ? '◈' : a.tipo === 'lead' ? '✉' : '⚡'}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-carbon-200">{a.texto}</p>
+              <p class="text-xs text-carbon-500 mt-0.5">{a.hace}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div class="tarjeta p-6">
+      <h2 class="text-lg font-display font-semibold text-white">Leads pendientes</h2>
+      <div class="mt-4 text-5xl font-display font-bold texto-gradiente">{metricas.leadsNuevos}</div>
+      <p class="mt-2 text-sm text-carbon-400">Sin procesar</p>
+      <a href="/admin/leads" class="btn-secundario mt-6 w-full">Revisar leads</a>
+    </div>
+  </div>
+
+  <div class="mt-8 tarjeta p-6">
+    <h2 class="text-lg font-display font-semibold text-white mb-4">Accesos rápidos</h2>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <a href="/admin/clientes/nuevo" class="tarjeta-interactiva p-4 text-sm">
+        <div class="font-semibold text-white">+ Nuevo cliente</div>
+        <div class="text-xs text-carbon-400 mt-1">Registrar empresa</div>
+      </a>
+      <a href="/admin/proyectos/nuevo" class="tarjeta-interactiva p-4 text-sm">
+        <div class="font-semibold text-white">+ Nuevo proyecto</div>
+        <div class="text-xs text-carbon-400 mt-1">Crear entregable</div>
+      </a>
+      <a href="/admin/automatizaciones/nuevo" class="tarjeta-interactiva p-4 text-sm">
+        <div class="font-semibold text-white">+ Automatización</div>
+        <div class="text-xs text-carbon-400 mt-1">Vincular flujo n8n</div>
+      </a>
+      <a href="/admin/leads" class="tarjeta-interactiva p-4 text-sm">
+        <div class="font-semibold text-white">Ver leads</div>
+        <div class="text-xs text-carbon-400 mt-1">Pipeline comercial</div>
+      </a>
+    </div>
+  </div>
+</LayoutAdmin>

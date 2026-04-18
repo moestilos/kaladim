@@ -1,0 +1,10 @@
+---
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import FormularioCaso from '../../../componentes/admin/FormularioCaso.astro';
+export const prerender = false;
+---
+<LayoutAdmin titulo="Nuevo caso de estudio">
+  <EncabezadoSeccion titulo="Nuevo caso" descripcion="Añade un proyecto al portfolio visible en la landing" />
+  <FormularioCaso modo="crear" />
+</LayoutAdmin>

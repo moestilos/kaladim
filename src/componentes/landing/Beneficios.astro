@@ -1,0 +1,38 @@
+---
+const beneficios = [
+  { titulo: 'Menos tareas manuales', descripcion: 'Equipo liberado de repetición. Más tiempo para lo que importa.', metrica: '-70%' },
+  { titulo: 'Errores humanos reducidos', descripcion: 'Automatización = consistencia. Los datos siempre cuadran.', metrica: '-95%' },
+  { titulo: 'Ventas sin fricción', descripcion: 'Tu web convierte 24/7 y los leads llegan al CRM al instante.', metrica: '+40%' },
+  { titulo: 'Tiempo de respuesta', descripcion: 'Clientes atendidos en segundos, no en horas.', metrica: '10x' },
+];
+---
+
+<section class="seccion">
+  <div class="contenedor">
+    <div class="tarjeta-glass p-10 sm:p-16 relative overflow-hidden">
+      <div class="absolute top-0 right-0 h-64 w-64 bg-violeta-600/20 blur-3xl pointer-events-none"></div>
+
+      <div class="relative grid lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <span class="text-sm font-semibold text-violeta-400 uppercase tracking-wider">Beneficios</span>
+          <h2 class="mt-3 text-4xl font-display font-bold text-white">
+            Resultados que se <span class="texto-gradiente">miden</span>
+          </h2>
+          <p class="mt-4 text-carbon-300">
+            No vendemos humo. Cada proyecto arranca con KPIs acordados y los medimos mes a mes.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          {beneficios.map((b) => (
+            <div class="tarjeta p-5 hover:border-violeta-600/40 transition">
+              <div class="text-3xl font-display font-bold texto-gradiente">{b.metrica}</div>
+              <div class="mt-2 text-sm font-semibold text-white">{b.titulo}</div>
+              <div class="mt-1 text-xs text-carbon-400">{b.descripcion}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

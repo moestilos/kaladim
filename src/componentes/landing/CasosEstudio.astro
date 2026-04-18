@@ -1,0 +1,406 @@
+---
+// Casos de estudio — lista navegable izq + preview navegador dcha.
+// Carga desde DB; si vacía o sin DATABASE_URL usa demo.
+
+import { db, esquema } from '../../lib/db/cliente';
+import { asc, eq } from 'drizzle-orm';
+
+type Metrica = { etiqueta: string; valor: string; sub?: string; acento?: boolean };
+type Caso = {
+  id: string;
+  titulo: string;
+  anio: string;
+  categoria: string;
+  descripcion: string;
+  url: string;
+  urlLive?: string;
+  urlCodigo?: string;
+  tecnologias: string[];
+  metricas: Metrica[];
+  grafica: number[];
+};
+
+const casosDemo: Caso[] = [
+  {
+    id: 'moepdf',
+    titulo: 'MoePDF',
+    anio: '2026',
+    categoria: 'SaaS · Next.js',
+    descripcion: 'Generador profesional de facturas PDF para freelancers. Flujo en 3 pasos, preview gratuito y descarga de pago con Stripe. Panel admin con métricas.',
+    url: 'moe-pdf.vercel.app',
+    urlLive: '#',
+    urlCodigo: '#',
+    tecnologias: ['Next.js 14', 'TypeScript', 'Tailwind', 'Supabase', 'Stripe', 'React-PDF'],
+    metricas: [
+      { etiqueta: 'Ingresos',  valor: '€4.280', sub: '+12% MoM', acento: true },
+      { etiqueta: 'Clientes',  valor: '38' },
+      { etiqueta: 'Pendiente', valor: '€720' },
+    ],
+    grafica: [22, 30, 28, 40, 45, 42, 55, 60, 58, 68, 72, 70, 78, 82, 85, 82],
+  },
+  {
+    id: 'vuela21',
+    titulo: 'Vuela21',
+    anio: '2025',
+    categoria: 'SaaS · Cliente real',
+    descripcion: 'Plataforma de reserva de vuelos para agencia boutique. Integración con API Amadeus, pagos recurrentes y portal de clientes con facturación automatizada.',
+    url: 'vuela21.com',
+    urlLive: '#',
+    tecnologias: ['Angular 19', 'NestJS', 'PostgreSQL', 'Redis', 'Amadeus API', 'Stripe'],
+    metricas: [
+      { etiqueta: 'Reservas/mes', valor: '2.4k', sub: '+48% YoY', acento: true },
+      { etiqueta: 'Conversión',   valor: '6.8%' },
+      { etiqueta: 'LCP medio',    valor: '1.2s' },
+    ],
+    grafica: [10, 15, 20, 18, 28, 30, 42, 48, 52, 58, 62, 68, 74, 78, 82, 90],
+  },
+  {
+    id: 'arcane',
+    titulo: 'Arcane Harvest',
+    anio: '2026',
+    categoria: 'Game · Frontend',
+    descripcion: 'Juego incremental web con progresión balanceada y sistema de prestigio. Arquitectura reactiva con Angular 19 signals, persistencia en Neon + Drizzle.',
+    url: 'arcane-harvest.vercel.app',
+    urlLive: '#',
+    urlCodigo: '#',
+    tecnologias: ['Angular 19', 'Signals', 'Tailwind', 'Vercel', 'Neon', 'Drizzle'],
+    metricas: [
+      { etiqueta: 'Jugadores activos', valor: '1.8k', sub: 'DAU', acento: true },
+      { etiqueta: 'Retención D7',      valor: '34%' },
+      { etiqueta: 'Sesión media',      valor: '18m' },
+    ],
+    grafica: [5, 12, 20, 25, 35, 45, 55, 50, 65, 72, 68, 80, 85, 78, 88, 92],
+  },
+  {
+    id: 'funkmoes',
+    titulo: 'FunkMoes',
+    anio: '2024',
+    categoria: 'E-commerce · Full Stack',
+    descripcion: 'Tienda online de merchandising musical con checkout optimizado. Automatización de envíos con n8n + integración Correos. Panel admin para gestión de catálogo.',
+    url: 'funkmoes.shop',
+    urlLive: '#',
+    tecnologias: ['Astro', 'Tailwind', 'Symfony', 'PostgreSQL', 'Stripe', 'n8n'],
+    metricas: [
+      { etiqueta: 'Ventas/mes', valor: '€18.5k', sub: '+210%', acento: true },
+      { etiqueta: 'AOV',        valor: '€52' },
+      { etiqueta: 'Abandono',   valor: '42%' },
+    ],
+    grafica: [30, 35, 40, 38, 50, 55, 62, 70, 75, 72, 80, 85, 90, 92, 88, 95],
+  },
+  {
+    id: 'estiumsew',
+    titulo: 'Estiumsew',
+    anio: '2025',
+    categoria: 'Landing · Frontend',
+    descripcion: 'Landing de captación para estudio de arquitectura. Galería interactiva con filtros, formulario de briefing y automatización de CRM con HubSpot vía n8n.',
+    url: 'estiumsew.studio',
+    urlLive: '#',
+    tecnologias: ['Astro', 'Tailwind', 'Motion', 'HubSpot', 'n8n'],
+    metricas: [
+      { etiqueta: 'Leads/mes',     valor: '127',   sub: '+85%', acento: true },
+      { etiqueta: 'Lighthouse',    valor: '98' },
+      { etiqueta: 'Tiempo página', valor: '3:42' },
+    ],
+    grafica: [15, 20, 25, 32, 40, 38, 50, 58, 55, 65, 72, 78, 80, 85, 92, 88],
+  },
+];
+
+// Cargar desde DB (con fallback a demo)
+let casos: Caso[] = casosDemo;
+try {
+  if (import.meta.env.DATABASE_URL) {
+    const filas = await db
+      .select()
+      .from(esquema.casosEstudio)
+      .where(eq(esquema.casosEstudio.activo, true))
+      .orderBy(asc(esquema.casosEstudio.orden));
+    if (filas.length > 0) {
+      casos = filas.map((f) => ({
+        id: f.slug,
+        titulo: f.titulo,
+        anio: f.anio,
+        categoria: f.categoria,
+        descripcion: f.descripcion,
+        url: f.url,
+        urlLive: f.urlLive ?? undefined,
+        urlCodigo: f.urlCodigo ?? undefined,
+        tecnologias: safeJson<string[]>(f.tecnologias, []),
+        metricas: safeJson<Metrica[]>(f.metricas, []),
+        grafica: safeJson<number[]>(f.grafica, []),
+      }));
+    }
+  }
+} catch (e) {
+  console.error('[CasosEstudio] error cargando DB, usando demo', e);
+}
+
+function safeJson<T>(s: string, fallback: T): T {
+  try { return JSON.parse(s) as T; } catch { return fallback; }
+}
+
+// Genera path SVG desde array de puntos 0-100
+function pathSparkline(puntos: number[], ancho = 600, alto = 180): string {
+  if (!puntos || puntos.length < 2) return '';
+  const paso = ancho / (puntos.length - 1);
+  return puntos
+    .map((v, i) => `${i === 0 ? 'M' : 'L'} ${(i * paso).toFixed(1)} ${(alto - (v / 100) * alto * 0.8 - alto * 0.1).toFixed(1)}`)
+    .join(' ');
+}
+---
+
+<section id="casos" class="seccion relative">
+  <div class="contenedor">
+    <!-- Encabezado -->
+    <div class="flex items-end gap-6 mb-14">
+      <div class="flex items-center gap-3 pt-2">
+        <span class="h-px w-10 bg-violeta-500"></span>
+        <span class="text-xs font-mono text-carbon-400">02 / SELECTED WORK</span>
+      </div>
+    </div>
+
+    <h2 class="text-4xl sm:text-5xl lg:text-7xl font-display font-semibold tracking-[-0.03em] text-white leading-[0.95] max-w-5xl">
+      Case studies
+      <span class="block mt-2 font-serif italic font-normal text-carbon-400 text-2xl sm:text-4xl lg:text-6xl">
+        con clientes reales y producción real.
+      </span>
+    </h2>
+
+    <!-- Grid principal -->
+    <div class="mt-10 sm:mt-16 grid lg:grid-cols-[minmax(280px,380px)_1fr] gap-6 lg:gap-12 items-start">
+
+      <!-- ─── Lista proyectos ─── -->
+      <!-- Mobile: scroll horizontal chips · LG: columna vertical -->
+      <div class="lg:space-y-1 flex lg:flex-col gap-2 lg:gap-0 overflow-x-auto lg:overflow-visible snap-x snap-mandatory lg:snap-none -mx-4 px-4 lg:mx-0 lg:px-0 pb-2 lg:pb-0">
+        {casos.map((c, i) => (
+          <button
+            type="button"
+            data-caso={c.id}
+            class="boton-caso relative shrink-0 lg:shrink text-left lg:pl-6 px-4 lg:pr-4 py-3 lg:py-4 rounded-lg transition-all duration-200 group border border-carbon-800 lg:border-0 bg-carbon-900/40 lg:bg-transparent snap-start min-w-[180px] lg:min-w-0"
+            aria-pressed={i === 0 ? 'true' : 'false'}
+          >
+            <span class="indicador hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 bg-violeta-500 rounded-full transition-all duration-300"></span>
+            <div class="text-[10px] font-mono text-carbon-500 mb-1 lg:mb-1.5 tracking-wider">
+              {String(i + 1).padStart(2, '0')}
+            </div>
+            <div class="titulo-caso text-base lg:text-xl font-display font-semibold text-carbon-400 group-hover:text-white transition-colors tracking-tight">
+              {c.titulo}
+            </div>
+            <div class="text-[11px] lg:text-xs text-carbon-500 mt-0.5 lg:mt-1 font-mono truncate">
+              {c.categoria}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <!-- ─── Preview derecha ─── -->
+      <div class="relative">
+        <!-- Glow -->
+        <div class="absolute -inset-8 bg-violeta-600/15 blur-3xl pointer-events-none"></div>
+
+        <!-- Contenedor con ventana + pie info -->
+        <div class="relative space-y-4">
+
+          <!-- Ventana navegador -->
+          <div class="relative rounded-2xl border border-carbon-700/80 bg-carbon-900/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden">
+
+            <!-- Barra superior -->
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-carbon-800 bg-carbon-950/60">
+              <div class="flex gap-1.5">
+                <span class="h-3 w-3 rounded-full bg-red-500/80"></span>
+                <span class="h-3 w-3 rounded-full bg-amber-500/80"></span>
+                <span class="h-3 w-3 rounded-full bg-emerald-500/80"></span>
+              </div>
+              <div class="flex-1 flex justify-center">
+                <div class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-carbon-800 text-xs text-carbon-400 font-mono">
+                  <svg class="h-3 w-3 text-carbon-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v4H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2h-3V4a3 3 0 00-3-3z"/></svg>
+                  <span id="caso-url">{casos[0].url}</span>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono text-carbon-500">
+                <span id="caso-paginacion">01</span>/{String(casos.length).padStart(2, '0')}
+              </span>
+            </div>
+
+            <!-- Contenido interno -->
+            <div class="p-4 sm:p-6 lg:p-8 min-h-[380px] sm:min-h-[420px]">
+              <!-- Placeholder barras -->
+              <div class="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 sm:gap-6">
+                <div class="hidden sm:block space-y-2">
+                  <div class="h-3 w-full rounded bg-carbon-700/60"></div>
+                  <div class="h-3 w-4/5 rounded bg-carbon-700/40"></div>
+                  <div class="h-3 w-2/3 rounded bg-carbon-700/30"></div>
+                </div>
+
+                <!-- Métricas dinámicas -->
+                <div id="caso-metricas" class="grid grid-cols-3 gap-2 sm:gap-3"></div>
+              </div>
+
+              <!-- Gráfica -->
+              <div class="mt-6">
+                <svg id="caso-grafica" viewBox="0 0 600 180" class="w-full h-44" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="grad-caso" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="rgb(var(--acento-400))" stop-opacity="0.45"/>
+                      <stop offset="100%" stop-color="rgb(var(--acento-400))" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path id="caso-linea" d={pathSparkline(casos[0].grafica)} fill="none" stroke="rgb(var(--acento-400))" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path id="caso-area"  d={pathSparkline(casos[0].grafica) + ' L 600 180 L 0 180 Z'} fill="url(#grad-caso)"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pie con info proyecto -->
+          <div class="rounded-2xl border border-carbon-700/80 bg-carbon-900/95 backdrop-blur-xl p-6">
+            <div class="flex items-start justify-between gap-6 flex-wrap">
+              <div class="flex-1 min-w-[280px]">
+                <div class="flex items-center gap-3">
+                  <h3 id="caso-titulo" class="text-2xl font-display font-bold text-white tracking-tight">
+                    {casos[0].titulo}
+                  </h3>
+                  <span id="caso-anio" class="text-xs font-mono px-2 py-0.5 rounded-full bg-carbon-800 border border-carbon-700 text-carbon-300">
+                    {casos[0].anio}
+                  </span>
+                </div>
+                <p id="caso-descripcion" class="mt-3 text-sm text-carbon-300 leading-relaxed max-w-2xl">
+                  {casos[0].descripcion}
+                </p>
+                <div id="caso-tecnologias" class="mt-4 flex flex-wrap gap-1.5"></div>
+              </div>
+
+              <div class="flex gap-2 shrink-0">
+                <a id="caso-live" href="#" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-carbon-900 text-sm font-medium hover:bg-carbon-100 transition">
+                  Live demo
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7m10 0v10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+                <a id="caso-codigo" href="#" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-carbon-800 border border-carbon-700 text-sm text-carbon-200 hover:text-white hover:border-violeta-500/50 transition">
+                  Code
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Datos casos serializados como JSON pa' el script -->
+  <script id="datos-casos" type="application/json" set:html={JSON.stringify(
+    casos.map((c) => ({
+      ...c,
+      path: pathSparkline(c.grafica),
+      area: pathSparkline(c.grafica) + ' L 600 180 L 0 180 Z',
+    }))
+  )}></script>
+
+  <script>
+    type CasoCliente = {
+      id: string;
+      titulo: string;
+      anio: string;
+      categoria: string;
+      descripcion: string;
+      url: string;
+      urlLive?: string;
+      urlCodigo?: string;
+      tecnologias: string[];
+      metricas: { etiqueta: string; valor: string; sub?: string; acento?: boolean }[];
+      path: string;
+      area: string;
+    };
+
+    const datos: CasoCliente[] = JSON.parse(
+      document.getElementById('datos-casos')?.textContent ?? '[]',
+    );
+
+    const botones = document.querySelectorAll<HTMLButtonElement>('.boton-caso');
+
+    const refs = {
+      url:         document.getElementById('caso-url')!,
+      paginacion:  document.getElementById('caso-paginacion')!,
+      metricas:    document.getElementById('caso-metricas')!,
+      linea:       document.getElementById('caso-linea') as SVGPathElement | null,
+      area:        document.getElementById('caso-area')  as SVGPathElement | null,
+      titulo:      document.getElementById('caso-titulo')!,
+      anio:        document.getElementById('caso-anio')!,
+      descripcion: document.getElementById('caso-descripcion')!,
+      tecnologias: document.getElementById('caso-tecnologias')!,
+      live:        document.getElementById('caso-live') as HTMLAnchorElement,
+      codigo:      document.getElementById('caso-codigo') as HTMLAnchorElement,
+    };
+
+    function actualizarMetricas(c: CasoCliente) {
+      refs.metricas.innerHTML = c.metricas.map((m) => `
+        <div class="rounded-xl border border-carbon-800 bg-carbon-950/60 p-3 sm:p-4">
+          <div class="text-[10px] sm:text-xs text-carbon-400 truncate">${m.etiqueta}</div>
+          <div class="mt-1 text-lg sm:text-2xl font-display font-bold ${m.acento ? 'text-violeta-300' : 'text-white'} tracking-tight truncate">${m.valor}</div>
+          ${m.sub ? `<div class="text-[10px] sm:text-[11px] text-carbon-500 mt-0.5 font-mono truncate">${m.sub}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function actualizarTecnologias(c: CasoCliente) {
+      refs.tecnologias.innerHTML = c.tecnologias.map((t) => `
+        <span class="px-2.5 py-1 rounded-md bg-carbon-800 border border-carbon-700 text-[11px] font-mono text-carbon-300">${t}</span>
+      `).join('');
+    }
+
+    function pintar(id: string, indice: number) {
+      const c = datos.find((x) => x.id === id);
+      if (!c) return;
+
+      refs.url.textContent = c.url;
+      refs.paginacion.textContent = String(indice + 1).padStart(2, '0');
+      refs.titulo.textContent = c.titulo;
+      refs.anio.textContent = c.anio;
+      refs.descripcion.textContent = c.descripcion;
+      refs.live.href = c.urlLive || '#';
+      refs.codigo.href = c.urlCodigo || '#';
+      refs.codigo.style.display = c.urlCodigo ? '' : 'none';
+      refs.linea?.setAttribute('d', c.path);
+      refs.area?.setAttribute('d', c.area);
+
+      actualizarMetricas(c);
+      actualizarTecnologias(c);
+
+      // Transición suave fade-in del gráfico
+      if (refs.linea) {
+        refs.linea.style.opacity = '0';
+        requestAnimationFrame(() => {
+          refs.linea!.style.transition = 'opacity 0.5s ease';
+          refs.linea!.style.opacity = '1';
+        });
+      }
+
+      // Estado activo botones
+      botones.forEach((b, i) => {
+        const activo = b.dataset.caso === id;
+        b.setAttribute('aria-pressed', activo ? 'true' : 'false');
+        const indicador = b.querySelector('.indicador') as HTMLElement;
+        const titulo    = b.querySelector('.titulo-caso') as HTMLElement;
+        if (activo) {
+          b.classList.add('bg-carbon-900/40');
+          indicador.style.height = '60%';
+          titulo.classList.remove('text-carbon-400');
+          titulo.classList.add('text-white');
+        } else {
+          b.classList.remove('bg-carbon-900/40');
+          indicador.style.height = '0';
+          titulo.classList.add('text-carbon-400');
+          titulo.classList.remove('text-white');
+        }
+      });
+    }
+
+    botones.forEach((btn, i) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.caso!;
+        pintar(id, i);
+      });
+    });
+
+    // Inicializar primer caso como activo
+    if (datos[0]) pintar(datos[0].id, 0);
+  </script>
+</section>

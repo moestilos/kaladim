@@ -1,0 +1,57 @@
+---
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import TablaDatos from '../../../componentes/admin/TablaDatos.astro';
+import { db, esquema } from '../../../lib/db/cliente';
+import { desc } from 'drizzle-orm';
+
+export const prerender = false;
+
+let filas: any[] = [];
+let error: string | null = null;
+try {
+  if (import.meta.env.DATABASE_URL) {
+    filas = await db.select().from(esquema.clientes).orderBy(desc(esquema.clientes.creadoEn));
+  } else {
+    error = 'Sin DATABASE_URL — mostrando ejemplo';
+    filas = [
+      { id: 'ejemplo-1', empresa: 'Acme S.L.', contactoNombre: 'Ana García', contactoEmail: 'ana@acme.com', sector: 'Retail', creadoEn: new Date() },
+      { id: 'ejemplo-2', empresa: 'TechCorp', contactoNombre: 'Luis Ruiz', contactoEmail: 'luis@techcorp.com', sector: 'Tecnología', creadoEn: new Date() },
+    ];
+  }
+} catch (e) {
+  error = e instanceof Error ? e.message : 'Error';
+}
+
+const columnas = [
+  { clave: 'empresa', etiqueta: 'Empresa' },
+  { clave: 'contactoNombre', etiqueta: 'Contacto' },
+  { clave: 'contactoEmail', etiqueta: 'Email' },
+  { clave: 'sector', etiqueta: 'Sector' },
+  { clave: 'creadoEn', etiqueta: 'Alta', formato: 'fecha' as const },
+];
+---
+
+<LayoutAdmin titulo="Clientes" subtitulo="Gestión de empresas contratantes">
+  <EncabezadoSeccion
+    titulo="Clientes"
+    descripcion={`${filas.length} ${filas.length === 1 ? 'empresa registrada' : 'empresas registradas'}`}
+    hrefNuevo="/admin/clientes/nuevo"
+    textoNuevo="Nuevo cliente"
+  />
+
+  {error && (
+    <div class="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+      ⚠ {error}
+    </div>
+  )}
+
+  <TablaDatos
+    columnas={columnas}
+    filas={filas}
+    rutaEditar={(f) => `/admin/clientes/${f.id}`}
+    rutaEliminar="/api/clientes"
+    mensajeVacio="No hay clientes todavía. Crea el primero para empezar."
+    placeholderBusqueda="Buscar por empresa, contacto, email..."
+  />
+</LayoutAdmin>

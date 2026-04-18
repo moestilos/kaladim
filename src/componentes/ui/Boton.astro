@@ -1,0 +1,33 @@
+---
+interface Props {
+  variante?: 'primario' | 'secundario' | 'fantasma';
+  href?: string;
+  type?: 'button' | 'submit';
+  tamano?: 'sm' | 'md' | 'lg';
+  class?: string;
+  [key: string]: any;
+}
+const {
+  variante = 'primario',
+  href,
+  type = 'button',
+  tamano = 'md',
+  class: claseExtra = '',
+  ...resto
+} = Astro.props;
+
+const claseVariante = {
+  primario: 'btn-primario',
+  secundario: 'btn-secundario',
+  fantasma: 'btn-fantasma',
+}[variante];
+
+const claseTamano = tamano === 'sm' ? 'text-sm px-4 py-2' : tamano === 'lg' ? 'text-base px-8 py-4' : '';
+const clases = `${claseVariante} ${claseTamano} ${claseExtra}`;
+---
+
+{href ? (
+  <a href={href} class={clases} {...resto}><slot /></a>
+) : (
+  <button type={type} class={clases} {...resto}><slot /></button>
+)}

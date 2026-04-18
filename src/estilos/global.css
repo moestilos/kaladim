@@ -1,0 +1,286 @@
+/* ═══════════ TIPOGRAFÍAS ═══════════ */
+/* Satoshi (Fontshare) — geometric sans premium, usado por Linear/Framer.
+   Instrument Serif (Google) — acentos italic editoriales.
+   JetBrains Mono (Google) — código, etiquetas técnicas. */
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════ TEMAS (CSS variables) ═══════════ */
+/* Cada tema redefine la escala de acento. Cambiar tema = setear data-tema en <html>. */
+
+:root,
+:root[data-tema="violeta"] {
+  --acento-50:  245 243 255;
+  --acento-100: 237 233 254;
+  --acento-200: 221 214 254;
+  --acento-300: 196 181 253;
+  --acento-400: 167 139 250;
+  --acento-500: 139  92 246;
+  --acento-600: 124  58 237;
+  --acento-700: 109  40 217;
+  --acento-800:  91  33 182;
+  --acento-900:  76  29 149;
+}
+
+:root[data-tema="verde"] {
+  --acento-50:  236 253 245;
+  --acento-100: 209 250 229;
+  --acento-200: 167 243 208;
+  --acento-300: 110 231 183;
+  --acento-400:  52 211 153;
+  --acento-500:  16 185 129;
+  --acento-600:   5 150 105;
+  --acento-700:   4 120  87;
+  --acento-800:   6  95  70;
+  --acento-900:   6  78  59;
+}
+
+:root[data-tema="neon"] {
+  /* Verde neón estilo terminal */
+  --acento-50:  240 253 244;
+  --acento-100: 220 252 231;
+  --acento-200: 187 247 208;
+  --acento-300: 134 239 172;
+  --acento-400:  74 222 128;
+  --acento-500:  34 197  94;
+  --acento-600:  22 163  74;
+  --acento-700:  21 128  61;
+  --acento-800:  22 101  52;
+  --acento-900:  20  83  45;
+}
+
+:root[data-tema="amarillo"] {
+  --acento-50:  254 252 232;
+  --acento-100: 254 249 195;
+  --acento-200: 254 240 138;
+  --acento-300: 253 224  71;
+  --acento-400: 250 204  21;
+  --acento-500: 234 179   8;
+  --acento-600: 202 138   4;
+  --acento-700: 161 098  07;
+  --acento-800: 133 077  14;
+  --acento-900: 113 063  18;
+}
+
+:root[data-tema="cian"] {
+  --acento-50:  236 254 255;
+  --acento-100: 207 250 254;
+  --acento-200: 165 243 252;
+  --acento-300: 103 232 249;
+  --acento-400:  34 211 238;
+  --acento-500:   6 182 212;
+  --acento-600:   8 145 178;
+  --acento-700:  14 116 144;
+  --acento-800:  21  94 117;
+  --acento-900:  22  78  99;
+}
+
+:root[data-tema="rosa"] {
+  --acento-50:  253 242 248;
+  --acento-100: 252 231 243;
+  --acento-200: 251 207 232;
+  --acento-300: 249 168 212;
+  --acento-400: 244 114 182;
+  --acento-500: 236  72 153;
+  --acento-600: 219  39 119;
+  --acento-700: 190  24  93;
+  --acento-800: 157  23  77;
+  --acento-900: 131  24  67;
+}
+
+:root[data-tema="naranja"] {
+  --acento-50:  255 247 237;
+  --acento-100: 255 237 213;
+  --acento-200: 254 215 170;
+  --acento-300: 253 186 116;
+  --acento-400: 251 146  60;
+  --acento-500: 249 115  22;
+  --acento-600: 234  88  12;
+  --acento-700: 194  65  12;
+  --acento-800: 154  52  18;
+  --acento-900: 124  45  18;
+}
+
+:root[data-tema="azul"] {
+  --acento-50:  239 246 255;
+  --acento-100: 219 234 254;
+  --acento-200: 191 219 254;
+  --acento-300: 147 197 253;
+  --acento-400:  96 165 250;
+  --acento-500:  59 130 246;
+  --acento-600:  37  99 235;
+  --acento-700:  29  78 216;
+  --acento-800:  30  64 175;
+  --acento-900:  30  58 138;
+}
+
+:root[data-tema="rojo"] {
+  --acento-50:  254 242 242;
+  --acento-100: 254 226 226;
+  --acento-200: 254 202 202;
+  --acento-300: 252 165 165;
+  --acento-400: 248 113 113;
+  --acento-500: 239  68  68;
+  --acento-600: 220  38  38;
+  --acento-700: 185  28  28;
+  --acento-800: 153  27  27;
+  --acento-900: 127  29  29;
+}
+
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    @apply text-carbon-100 antialiased;
+    background: #09090B;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans;
+    background: transparent;
+    min-height: 100vh;
+    font-feature-settings: 'kern', 'liga', 'calt';
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+
+  ::selection {
+    @apply bg-violeta-600/40 text-white;
+  }
+
+  /* Scrollbar sutil */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { @apply bg-carbon-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-carbon-700 rounded; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-violeta-700; }
+
+  h1, h2, h3, h4 {
+    @apply font-display;
+    letter-spacing: -0.04em;
+    font-feature-settings: 'kern', 'liga';
+    font-weight: 700;
+  }
+
+  h1 { letter-spacing: -0.045em; }
+
+  code, kbd, .font-mono {
+    font-feature-settings: 'zero', 'ss01';
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  /* ── Botones ── */
+  .btn-primario {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg
+           bg-violeta-600 hover:bg-violeta-500 text-white font-medium
+           shadow-lg shadow-violeta-600/25 transition-all duration-200
+           hover:shadow-violeta-500/40 hover:-translate-y-0.5
+           active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-violeta-400;
+  }
+
+  .btn-secundario {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg
+           bg-carbon-800 hover:bg-carbon-700 border border-carbon-700
+           text-carbon-100 font-medium transition-all duration-200
+           hover:border-violeta-600/50;
+  }
+
+  .btn-fantasma {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg
+           text-carbon-300 hover:text-white hover:bg-carbon-800/60
+           transition-colors duration-150;
+  }
+
+  /* ── Tarjetas ── */
+  .tarjeta {
+    @apply relative rounded-2xl border border-carbon-800 bg-carbon-900/60
+           backdrop-blur-sm transition-all duration-300;
+  }
+
+  .tarjeta-glass {
+    @apply relative rounded-2xl border border-white/10 bg-white/[0.03]
+           backdrop-blur-xl transition-all duration-300;
+  }
+
+  .tarjeta-interactiva {
+    @apply tarjeta hover:border-violeta-600/40 hover:bg-carbon-900/80
+           hover:-translate-y-1 hover:shadow-xl hover:shadow-violeta-600/10;
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-lg bg-carbon-900 border border-carbon-700
+           text-carbon-100 placeholder:text-carbon-500
+           focus:outline-none focus:border-violeta-500 focus:ring-2 focus:ring-violeta-500/20
+           transition-colors duration-150;
+  }
+
+  .etiqueta {
+    @apply block text-sm font-medium text-carbon-200 mb-1.5;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-exito     { @apply badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
+  .badge-advertencia{ @apply badge bg-amber-500/10 text-amber-400 border border-amber-500/20; }
+  .badge-error     { @apply badge bg-red-500/10 text-red-400 border border-red-500/20; }
+  .badge-info      { @apply badge bg-violeta-500/10 text-violeta-300 border border-violeta-500/20; }
+  .badge-neutro    { @apply badge bg-carbon-700/50 text-carbon-300 border border-carbon-700; }
+
+  /* ── Efectos decorativos ── */
+  .texto-gradiente {
+    @apply bg-gradient-to-r from-white via-violeta-200 to-violeta-400 bg-clip-text text-transparent;
+  }
+
+  .borde-gradiente {
+    position: relative;
+    background: linear-gradient(#0F0F11, #0F0F11) padding-box,
+                linear-gradient(135deg, rgb(var(--acento-600)), #3F3F46) border-box;
+    border: 1px solid transparent;
+  }
+
+  .brillo-violeta {
+    box-shadow:
+      0 0 40px rgb(var(--acento-600) / 0.15),
+      0 0 80px rgb(var(--acento-600) / 0.08);
+  }
+
+  /* Grid de fondo decorativo — usa var acento */
+  .fondo-grid {
+    background-image:
+      linear-gradient(rgb(var(--acento-600) / 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--acento-600) / 0.08) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, #000 40%, transparent 100%);
+  }
+
+  /* Contenedor estándar */
+  .contenedor {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Separador de sección */
+  .seccion {
+    @apply py-24 sm:py-32;
+  }
+}
+
+@layer utilities {
+  .delay-100 { animation-delay: 0.1s; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+  .delay-500 { animation-delay: 0.5s; }
+}

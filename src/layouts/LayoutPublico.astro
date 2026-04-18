@@ -1,0 +1,152 @@
+---
+import '../estilos/global.css';
+import Logo from '../componentes/ui/Logo.astro';
+import FondoConstelacion from '../componentes/ui/FondoConstelacion.astro';
+import GestorTema from '../componentes/ui/GestorTema.astro';
+import PaletaComandos from '../componentes/ui/PaletaComandos.astro';
+
+interface Props {
+  titulo?: string;
+  descripcion?: string;
+  imagen?: string;
+}
+const {
+  titulo = 'Kaladim — Webs profesionales y automatizaciones con n8n para empresas',
+  descripcion = 'Agencia digital especializada en desarrollo web de alto rendimiento y automatizaciones empresariales con n8n. Escalamos tu negocio con tecnología.',
+  imagen = '/og-image.png',
+} = Astro.props;
+
+const url = Astro.url.href;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <GestorTema />
+
+    <title>{titulo}</title>
+    <meta name="description" content={descripcion} />
+    <meta name="theme-color" content="#09090B" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={url} />
+    <meta property="og:title" content={titulo} />
+    <meta property="og:description" content={descripcion} />
+    <meta property="og:image" content={imagen} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={titulo} />
+    <meta name="twitter:description" content={descripcion} />
+    <meta name="twitter:image" content={imagen} />
+
+    <link rel="canonical" href={url} />
+  </head>
+  <body class="min-h-screen flex flex-col relative">
+    <FondoConstelacion />
+
+    <!-- ═════════ NAVEGACIÓN (pill flotante responsive) ═════════ -->
+    <header class="fixed top-4 inset-x-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none">
+      <div class="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border border-carbon-700/80 bg-carbon-900/80 backdrop-blur-xl shadow-2xl shadow-black/40 max-w-full">
+
+        <!-- Logo -->
+        <a href="/" class="flex items-center gap-2 pl-1.5 pr-3 py-1 group shrink-0" aria-label="Kaladim — inicio">
+          <div class="h-7 w-7 relative grid place-items-center rounded-[28%] bg-gradient-to-br from-violeta-500 via-violeta-600 to-violeta-800 shadow-md shadow-violeta-600/40 transition-transform duration-300 group-hover:scale-[1.08] group-hover:rotate-[-4deg]">
+            <span class="absolute inset-0 rounded-[28%] bg-gradient-to-br from-white/25 via-transparent to-transparent pointer-events-none"></span>
+            <svg viewBox="0 0 32 32" class="h-[62%] w-[62%] relative" aria-hidden="true">
+              <g fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 5 V27"/>
+                <path d="M8 16 L22 5"/><path d="M17 5 H22 V10"/>
+                <path d="M8 16 L22 27"/><path d="M17 27 H22 V22"/>
+              </g>
+              <circle cx="8" cy="16" r="2.6" fill="#fff"/>
+            </svg>
+          </div>
+          <span class="font-display font-bold text-white text-[15px] tracking-[-0.02em] leading-none">
+            Kaladim<span class="inline-block ml-0.5 h-1 w-1 rounded-full bg-violeta-400 align-baseline"></span>
+          </span>
+        </a>
+
+        <span class="hidden lg:block w-px h-5 bg-carbon-700/80"></span>
+
+        <!-- Enlaces (solo lg+) -->
+        <nav class="hidden lg:flex items-center">
+          <a href="/#servicios" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">servicios</a>
+          <a href="/#casos" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">casos</a>
+          <a href="/#automatizaciones" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">automatizaciones</a>
+          <a href="/#proceso" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">proceso</a>
+          <a href="/#contacto" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">contacto</a>
+        </nav>
+
+        <span class="hidden lg:block w-px h-5 bg-carbon-700/80"></span>
+
+        <!-- Menú — abre paleta (en móvil funciona como menú completo) -->
+        <button
+          type="button"
+          id="btn-abrir-paleta-nav"
+          class="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-carbon-800/70 hover:bg-carbon-800 border border-carbon-700/60 text-sm text-carbon-200 hover:text-white transition-colors shrink-0"
+        >
+          <svg class="h-4 w-4 lg:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/>
+          </svg>
+          <span class="hidden sm:inline">Menú</span>
+          <kbd class="hidden sm:flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-carbon-950/70 border border-carbon-700 text-carbon-400">
+            <span class="text-[11px]">⌘</span>K
+          </kbd>
+        </button>
+      </div>
+    </header>
+
+    <div class="h-20" aria-hidden="true"></div>
+
+    <script>
+      document.getElementById('btn-abrir-paleta-nav')?.addEventListener('click', () => {
+        document.getElementById('btn-abrir-paleta')?.click();
+      });
+    </script>
+
+    <main class="flex-1 relative z-10"><slot /></main>
+
+    <PaletaComandos />
+
+    <!-- ═════════ FOOTER ═════════ -->
+    <footer class="relative z-10 border-t border-carbon-800/50 bg-carbon-950">
+      <div class="contenedor py-16 grid gap-10 md:grid-cols-4">
+        <div class="md:col-span-2">
+          <Logo />
+          <p class="mt-4 text-sm text-carbon-400 max-w-sm">
+            Agencia digital enfocada en webs de alto rendimiento y automatizaciones empresariales con n8n. Construimos herramientas que trabajan por ti.
+          </p>
+        </div>
+        <div>
+          <h4 class="text-sm font-semibold text-white mb-4">Servicios</h4>
+          <ul class="space-y-2 text-sm text-carbon-400">
+            <li><a href="/#servicios" class="hover:text-violeta-400">Webs corporativas</a></li>
+            <li><a href="/#servicios" class="hover:text-violeta-400">E-commerce</a></li>
+            <li><a href="/#automatizaciones" class="hover:text-violeta-400">Automatizaciones n8n</a></li>
+            <li><a href="/#servicios" class="hover:text-violeta-400">Integraciones API</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-semibold text-white mb-4">Empresa</h4>
+          <ul class="space-y-2 text-sm text-carbon-400">
+            <li><a href="/#proceso" class="hover:text-violeta-400">Cómo trabajamos</a></li>
+            <li><a href="/#contacto" class="hover:text-violeta-400">Contacto</a></li>
+            <li><a href="/entrar" class="hover:text-violeta-400">Acceso clientes</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-carbon-900">
+        <div class="contenedor py-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-carbon-500">
+          <span>© {new Date().getFullYear()} Kaladim. Todos los derechos reservados.</span>
+          <span>Hecho con Astro, Tailwind y mucho café ☕</span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
