@@ -25,3 +25,5 @@ Thumbs.db
 
 # Drizzle
 drizzle/meta/
+
+.vercel

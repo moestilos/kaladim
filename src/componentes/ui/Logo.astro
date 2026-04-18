@@ -1,13 +1,14 @@
 ---
-// Logo Kaladim — monograma "K" abstracto tipo nodo/flujo.
-// Concepto: vertical bar = estructura · diagonales ramificadas = distribución/automatización.
-// Node luminoso en la intersección refuerza metáfora de red/n8n.
+// Logo Kaladim v2 — glifo geométrico "K" de cuñas con acento pulsante.
+// Concepto: columna vertical (estructura) + 2 cuñas triangulares rellenas
+// que proyectan hacia fuera (expansión/crecimiento) + punto acento al vértice.
+// Depth via capas con gradiente + highlight cristalino.
 
 interface Props {
   tamano?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   mostrarTexto?: boolean;
-  soloMarca?: boolean;   // solo icono, sin link
-  invertido?: boolean;   // marca sólida invertida (sin fondo gradiente)
+  soloMarca?: boolean;
+  invertido?: boolean;
 }
 const { tamano = 'md', mostrarTexto = true, soloMarca = false, invertido = false } = Astro.props;
 
@@ -24,81 +25,90 @@ const props = soloMarca ? {} : { href: '/', 'aria-label': 'Kaladim — inicio' }
 ---
 
 <Wrapper {...props} class="flex items-center gap-2.5 group">
-  <!-- Marca -->
+  <!-- Contenedor -->
   <div class={`${m.caja} relative grid place-items-center shrink-0 ${
     invertido
-      ? 'rounded-lg bg-white'
-      : 'rounded-[28%] bg-gradient-to-br from-violeta-500 via-violeta-600 to-violeta-800'
-  } shadow-lg shadow-violeta-600/40 transition-transform duration-300 group-hover:scale-[1.08] group-hover:rotate-[-4deg]`}>
-    <!-- Highlight sutil esquina superior izq (efecto cristal) -->
+      ? 'rounded-[30%] bg-white'
+      : 'rounded-[30%] bg-gradient-to-br from-violeta-400 via-violeta-600 to-violeta-900'
+  } shadow-lg shadow-violeta-600/50 transition-all duration-300 group-hover:scale-[1.08] group-hover:rotate-[-3deg]`}>
+
+    <!-- Highlight cristalino -->
     {!invertido && (
-      <span class="absolute inset-0 rounded-[28%] bg-gradient-to-br from-white/25 via-transparent to-transparent pointer-events-none"></span>
+      <>
+        <span class="absolute inset-0 rounded-[30%] bg-gradient-to-br from-white/30 via-white/5 to-transparent pointer-events-none"></span>
+        <span class="absolute inset-x-0 top-0 h-1/2 rounded-t-[30%] bg-gradient-to-b from-white/20 to-transparent pointer-events-none"></span>
+      </>
     )}
 
-    <!-- SVG del monograma -->
-    <svg viewBox="0 0 32 32" class="h-[62%] w-[62%] relative" aria-hidden="true">
+    <!-- SVG glifo -->
+    <svg viewBox="0 0 64 64" class="h-[68%] w-[68%] relative" aria-hidden="true">
       <defs>
-        <!-- Degradado de la marca blanca (aporta profundidad) -->
-        <linearGradient id="kld-bar" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="kld-bar-v2" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%"  stop-color="#ffffff" stop-opacity="1"/>
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.82"/>
         </linearGradient>
-        <!-- Brillo del nodo central -->
-        <radialGradient id="kld-node">
-          <stop offset="0%"  stop-color="#ffffff" stop-opacity="1"/>
-          <stop offset="60%" stop-color="#ffffff" stop-opacity="0.9"/>
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-        </radialGradient>
+        <linearGradient id="kld-wedge-top" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"  stop-color="#ffffff" stop-opacity="0.95"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.6"/>
+        </linearGradient>
+        <linearGradient id="kld-wedge-bot" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"  stop-color="#ffffff" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.45"/>
+        </linearGradient>
       </defs>
 
-      <!-- Color principal trazo -->
-      <g
-        fill="none"
-        stroke={invertido ? 'rgb(var(--acento-600))' : 'url(#kld-bar)'}
-        stroke-width="3.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <!-- Vertical bar (tallo K) -->
-        <path d="M8 5 V27" />
-        <!-- Diagonal superior con flecha (rama saliente arriba) -->
-        <path d="M8 16 L22 5" />
-        <path d="M17 5 H22 V10" />
-        <!-- Diagonal inferior con flecha (rama saliente abajo) -->
-        <path d="M8 16 L22 27" />
-        <path d="M17 27 H22 V22" />
+      <g fill={invertido ? 'rgb(var(--acento-600))' : undefined}>
+        <!-- Columna vertical (bar sólido) -->
+        <rect
+          x="12" y="10" width="11" height="44" rx="2.5"
+          fill={invertido ? 'currentColor' : 'url(#kld-bar-v2)'}
+        />
+
+        <!-- Cuña superior: triángulo plano desde junción → esquina sup-dcha -->
+        <path
+          d="M 23 32 L 50 10 Q 54 10 54 14 L 30 34 Z"
+          fill={invertido ? 'currentColor' : 'url(#kld-wedge-top)'}
+        />
+
+        <!-- Cuña inferior: triángulo plano desde junción → esquina inf-dcha -->
+        <path
+          d="M 23 32 L 50 54 Q 54 54 54 50 L 30 30 Z"
+          fill={invertido ? 'currentColor' : 'url(#kld-wedge-bot)'}
+        />
+
+        <!-- Nodo de junción con halo pulsante -->
+        <circle
+          cx="23" cy="32" r="4.5"
+          fill={invertido ? 'currentColor' : '#ffffff'}
+        />
       </g>
 
-      <!-- Nodo central (junción) — pulso suave -->
-      <g>
-        <circle
-          cx="8" cy="16" r="2.6"
-          fill={invertido ? 'rgb(var(--acento-600))' : 'url(#kld-node)'}
-        />
-        <circle
-          cx="8" cy="16" r="4.5"
-          fill="none"
-          stroke={invertido ? 'rgb(var(--acento-600))' : '#ffffff'}
-          stroke-width="0.8"
-          opacity="0.35"
-        >
-          <animate attributeName="r" values="4;6;4" dur="2.4s" repeatCount="indefinite"/>
-          <animate attributeName="opacity" values="0.35;0;0.35" dur="2.4s" repeatCount="indefinite"/>
+      <!-- Halo animado nodo -->
+      <circle cx="23" cy="32" r="6" fill="none"
+        stroke={invertido ? 'rgb(var(--acento-600))' : '#ffffff'}
+        stroke-width="1" opacity="0.5">
+        <animate attributeName="r" values="5;9;5" dur="2.6s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5;0;0.5" dur="2.6s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Punto acento color tema en la esquina sup-dcha (firma de marca) -->
+      {!invertido && (
+        <circle cx="52" cy="12" r="2.2" fill="rgb(var(--acento-300))">
+          <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/>
         </circle>
-      </g>
+      )}
     </svg>
 
-    <!-- Glow violeta detrás -->
+    <!-- Glow externo -->
     {!invertido && (
-      <span class="absolute inset-0 rounded-[28%] blur-lg opacity-70 bg-gradient-to-br from-violeta-500 to-violeta-700 -z-10"></span>
+      <span class="absolute inset-0 rounded-[30%] blur-xl opacity-60 bg-gradient-to-br from-violeta-400 to-violeta-700 -z-10"></span>
     )}
   </div>
 
   <!-- Wordmark -->
   {mostrarTexto && (
-    <span class={`${m.texto} font-display font-bold tracking-[-0.03em] text-white leading-none`}>
-      Kaladim
-      <span class="inline-block ml-0.5 h-1.5 w-1.5 rounded-full bg-violeta-400 align-baseline"></span>
+    <span class={`${m.texto} font-display font-bold tracking-[-0.035em] text-white leading-none`}>
+      Kaladim<span class="inline-block ml-0.5 w-1 h-1 rounded-full bg-violeta-400 align-baseline"></span>
     </span>
   )}
 </Wrapper>
