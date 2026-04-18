@@ -1,7 +1,6 @@
 ---
-// Logo Kaladim — minimalista profesional.
-// Fijo en violeta (#7C3AED) como identidad de marca — no cambia con el tema.
-// Mismo glifo exacto que el favicon pa' consistencia visual total.
+// Logo Kaladim — line-art a juego con iconos sidebar.
+// Outline square + K monograma + nodo en junción. Stroke 1.8, mismo lenguaje visual.
 
 interface Props {
   tamano?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -11,11 +10,11 @@ interface Props {
 const { tamano = 'md', mostrarTexto = true, soloMarca = false } = Astro.props;
 
 const medidas = {
-  xs: { caja: 'h-6 w-6',  texto: 'text-sm'   },
-  sm: { caja: 'h-7 w-7',  texto: 'text-base' },
-  md: { caja: 'h-8 w-8',  texto: 'text-xl'   },
-  lg: { caja: 'h-10 w-10', texto: 'text-2xl' },
-  xl: { caja: 'h-14 w-14', texto: 'text-3xl' },
+  xs: { caja: 'h-5 w-5',  texto: 'text-sm'   },
+  sm: { caja: 'h-6 w-6',  texto: 'text-base' },
+  md: { caja: 'h-7 w-7',  texto: 'text-xl'   },
+  lg: { caja: 'h-9 w-9',  texto: 'text-2xl' },
+  xl: { caja: 'h-12 w-12', texto: 'text-3xl' },
 };
 const m = medidas[tamano];
 const Wrapper = soloMarca ? 'div' : 'a';
@@ -23,27 +22,25 @@ const props = soloMarca ? {} : { href: '/', 'aria-label': 'Kaladim — inicio' }
 ---
 
 <Wrapper {...props} class="flex items-center gap-2.5 group">
-  <!-- Marca (color fijo brand) -->
-  <span
-    class={`${m.caja} relative grid place-items-center shrink-0 rounded-lg transition-transform duration-200 group-hover:scale-105`}
-    style="background: #7C3AED;"
+  <svg
+    viewBox="0 0 24 24"
+    class={`${m.caja} text-violeta-400 transition-transform duration-200 group-hover:scale-110 group-hover:text-violeta-300`}
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
   >
-    <svg viewBox="0 0 32 32" class="h-full w-full" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="#7C3AED"/>
-      <path
-        d="M11.5 8 V24 M11.5 16 L20 8 M11.5 16 L20 24"
-        stroke="#ffffff"
-        stroke-width="3"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        fill="none"
-      />
-    </svg>
-  </span>
+    <rect x="3" y="3" width="18" height="18" rx="4" />
+    <path d="M9 7 V17" />
+    <path d="M9 12 L15 7" />
+    <path d="M9 12 L15 17" />
+    <circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none" />
+  </svg>
 
-  <!-- Wordmark -->
   {mostrarTexto && (
-    <span class={`${m.texto} font-display font-semibold tracking-[-0.02em] text-white leading-none`}>
+    <span class={`${m.texto} font-display font-semibold tracking-[-0.025em] text-white leading-none`}>
       Kaladim
     </span>
   )}
