@@ -50,9 +50,9 @@ const url = Astro.url.href;
   <body class="min-h-screen flex flex-col relative">
     <FondoConstelacion />
 
-    <!-- ═════════ NAVEGACIÓN (pill flotante responsive) ═════════ -->
-    <header class="fixed top-4 inset-x-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none">
-      <div class="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border border-carbon-700/80 bg-carbon-900/80 backdrop-blur-xl shadow-2xl shadow-black/40 max-w-full">
+    <!-- ═════════ NAVEGACIÓN (pill flotante con indicador animado) ═════════ -->
+    <header id="header-nav" class="fixed top-4 inset-x-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none transition-all duration-300">
+      <div id="pill-nav" class="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border border-carbon-700/80 bg-carbon-900/80 backdrop-blur-xl shadow-2xl shadow-black/40 max-w-full transition-all duration-300 hover:border-violeta-500/40 hover:shadow-violeta-600/20">
 
         <!-- Logo (constelación K — sigue tema vía text-violeta-*) -->
         <a href="/" class="flex items-center gap-2 pl-1.5 pr-3 py-1 group shrink-0" aria-label="Kaladim — inicio">
@@ -81,13 +81,17 @@ const url = Astro.url.href;
 
         <span class="hidden lg:block w-px h-5 bg-carbon-700/80"></span>
 
-        <!-- Enlaces (solo lg+) -->
-        <nav class="hidden lg:flex items-center">
-          <a href="/#servicios" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">servicios</a>
-          <a href="/#casos" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">casos</a>
-          <a href="/#automatizaciones" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">automatizaciones</a>
-          <a href="/#proceso" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">proceso</a>
-          <a href="/#contacto" class="px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full hover:bg-carbon-800/60">contacto</a>
+        <!-- Enlaces (solo lg+) — con indicador deslizante -->
+        <nav id="nav-links" class="hidden lg:flex items-center relative">
+          <!-- Indicador animado (se mueve al link hovered/activo) -->
+          <span id="nav-indicador"
+            class="absolute top-1/2 -translate-y-1/2 h-8 rounded-full bg-violeta-500/15 border border-violeta-500/30 transition-all duration-300 ease-out opacity-0 pointer-events-none">
+          </span>
+          <a href="/#servicios" data-seccion="servicios" class="link-nav relative z-10 px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full">servicios</a>
+          <a href="/#casos" data-seccion="casos" class="link-nav relative z-10 px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full">casos</a>
+          <a href="/#automatizaciones" data-seccion="automatizaciones" class="link-nav relative z-10 px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full">automatizaciones</a>
+          <a href="/#proceso" data-seccion="proceso" class="link-nav relative z-10 px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full">proceso</a>
+          <a href="/#contacto" data-seccion="contacto" class="link-nav relative z-10 px-3 py-1.5 text-sm text-carbon-300 hover:text-white transition-colors rounded-full">contacto</a>
         </nav>
 
         <span class="hidden lg:block w-px h-5 bg-carbon-700/80"></span>
@@ -112,9 +116,87 @@ const url = Astro.url.href;
     <div class="h-20" aria-hidden="true"></div>
 
     <script>
+      // ── Botón menú abre paleta ──
       document.getElementById('btn-abrir-paleta-nav')?.addEventListener('click', () => {
         document.getElementById('btn-abrir-paleta')?.click();
       });
+
+      // ── Indicador deslizante hover/activo ──
+      const navLinks = document.querySelectorAll<HTMLAnchorElement>('#nav-links .link-nav');
+      const indicador = document.getElementById('nav-indicador') as HTMLSpanElement | null;
+      const navContainer = document.getElementById('nav-links');
+      let activoActual: HTMLAnchorElement | null = null;
+
+      function moverIndicador(target: HTMLElement | null) {
+        if (!indicador || !navContainer || !target) {
+          if (indicador) indicador.style.opacity = '0';
+          return;
+        }
+        const cont = navContainer.getBoundingClientRect();
+        const r = target.getBoundingClientRect();
+        indicador.style.width = r.width + 'px';
+        indicador.style.left = (r.left - cont.left) + 'px';
+        indicador.style.opacity = '1';
+      }
+
+      navLinks.forEach((a) => {
+        a.addEventListener('mouseenter', () => moverIndicador(a));
+      });
+      navContainer?.addEventListener('mouseleave', () => moverIndicador(activoActual));
+
+      // ── Scroll-spy: detecta sección activa ──
+      const secciones = ['servicios', 'casos', 'automatizaciones', 'proceso', 'contacto']
+        .map((id) => document.getElementById(id))
+        .filter((el): el is HTMLElement => !!el);
+
+      const observer = new IntersectionObserver((entries) => {
+        // Toma la sección más visible
+        const visibles = entries.filter((e) => e.isIntersecting);
+        if (visibles.length === 0) return;
+        const top = visibles.sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const id = top.target.id;
+        const link = document.querySelector<HTMLAnchorElement>(`.link-nav[data-seccion="${id}"]`);
+        navLinks.forEach((l) => l.classList.toggle('text-white', l === link));
+        navLinks.forEach((l) => l.classList.toggle('text-carbon-300', l !== link));
+        activoActual = link;
+        moverIndicador(link);
+      }, { rootMargin: '-40% 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] });
+
+      secciones.forEach((s) => observer.observe(s));
+
+      // Click → fija activo
+      navLinks.forEach((a) => {
+        a.addEventListener('click', () => {
+          activoActual = a;
+          setTimeout(() => moverIndicador(a), 50);
+        });
+      });
+
+      // ── Pill morph al scrollear ──
+      const header = document.getElementById('header-nav');
+      const pill = document.getElementById('pill-nav');
+      let ultimoScroll = 0;
+      function actualizarPill() {
+        const y = window.scrollY;
+        if (!header || !pill) return;
+        if (y > 30) {
+          header.classList.add('top-2');
+          header.classList.remove('top-4');
+          pill.classList.add('shadow-violeta-600/30', 'border-carbon-600/80');
+          pill.classList.remove('border-carbon-700/80');
+        } else {
+          header.classList.remove('top-2');
+          header.classList.add('top-4');
+          pill.classList.remove('shadow-violeta-600/30', 'border-carbon-600/80');
+          pill.classList.add('border-carbon-700/80');
+        }
+        ultimoScroll = y;
+      }
+      window.addEventListener('scroll', actualizarPill, { passive: true });
+      actualizarPill();
+
+      // Recalcular indicador en resize
+      window.addEventListener('resize', () => moverIndicador(activoActual));
     </script>
 
     <main class="flex-1 relative z-10"><slot /></main>
