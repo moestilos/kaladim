@@ -83,8 +83,26 @@ const rolLabels: Record<string, string> = {
       </div>
 
       <div>
-        <label class="etiqueta" for="avatarUrl">Avatar (URL imagen)</label>
-        <input id="avatarUrl" name="avatarUrl" type="url" class="input" maxlength="500" value={datos.avatarUrl ?? ''} placeholder="https://..." />
+        <label class="etiqueta">Foto de perfil</label>
+        <div class="flex items-center gap-4">
+          {/* Preview */}
+          <div class="relative shrink-0">
+            {datos.avatarUrl
+              ? <img id="preview-avatar" src={datos.avatarUrl} alt="" class="h-16 w-16 rounded-full object-cover ring-2 ring-violeta-500/30" />
+              : <div id="preview-avatar-placeholder" class="h-16 w-16 rounded-full bg-gradient-to-br from-violeta-500 to-violeta-700 grid place-items-center text-xl font-display font-bold text-white ring-2 ring-violeta-500/30">{(datos.nombre?.[0] ?? 'U').toUpperCase()}</div>
+            }
+          </div>
+          <div class="flex-1 flex flex-col sm:flex-row gap-2">
+            <input id="input-archivo" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
+            <button type="button" id="btn-subir" class="btn-secundario text-sm">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Subir imagen
+            </button>
+            <button type="button" id="btn-quitar-avatar" class="btn-fantasma text-sm text-red-400 hover:text-red-300">Quitar</button>
+          </div>
+        </div>
+        <p class="text-[10px] text-carbon-500 mt-2">PNG/JPG/WebP. Máx 5MB. Se redimensiona a 256×256.</p>
+        <input type="hidden" id="avatarUrl" name="avatarUrl" value={datos.avatarUrl ?? ''} />
       </div>
 
       <div>
@@ -109,6 +127,84 @@ const rolLabels: Record<string, string> = {
   const contadorBio = document.getElementById('contador-bio') as HTMLSpanElement;
   bioInput?.addEventListener('input', () => { contadorBio.textContent = String(bioInput.value.length); });
 
+  // ── Upload avatar (redimensionar a 256 + base64) ──
+  const btnSubir = document.getElementById('btn-subir') as HTMLButtonElement;
+  const btnQuitar = document.getElementById('btn-quitar-avatar') as HTMLButtonElement;
+  const inputArchivo = document.getElementById('input-archivo') as HTMLInputElement;
+  const avatarUrl = document.getElementById('avatarUrl') as HTMLInputElement;
+
+  function obtenerPreviewEl() {
+    return (document.getElementById('preview-avatar') || document.getElementById('preview-avatar-placeholder')) as HTMLElement;
+  }
+
+  function reemplazarPreview(src: string | null) {
+    const viejo = obtenerPreviewEl();
+    if (!viejo) return;
+    const padre = viejo.parentElement!;
+    viejo.remove();
+    if (src) {
+      const img = document.createElement('img');
+      img.id = 'preview-avatar';
+      img.src = src;
+      img.alt = '';
+      img.className = 'h-16 w-16 rounded-full object-cover ring-2 ring-violeta-500/30';
+      padre.appendChild(img);
+    } else {
+      const div = document.createElement('div');
+      div.id = 'preview-avatar-placeholder';
+      div.className = 'h-16 w-16 rounded-full bg-gradient-to-br from-violeta-500 to-violeta-700 grid place-items-center text-xl font-display font-bold text-white ring-2 ring-violeta-500/30';
+      const nombre = (document.getElementById('nombre') as HTMLInputElement).value;
+      div.textContent = (nombre?.[0] ?? 'U').toUpperCase();
+      padre.appendChild(div);
+    }
+  }
+
+  btnSubir.addEventListener('click', () => inputArchivo.click());
+  btnQuitar.addEventListener('click', () => {
+    avatarUrl.value = '';
+    reemplazarPreview(null);
+  });
+
+  inputArchivo.addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Imagen >5MB'); return; }
+
+    try {
+      const dataUrl = await redimensionarImagen(file, 256);
+      avatarUrl.value = dataUrl;
+      reemplazarPreview(dataUrl);
+    } catch (err) {
+      alert('Error procesando imagen');
+    }
+  });
+
+  function redimensionarImagen(file: File, size: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d')!;
+          // Crop centrado cuadrado + resize
+          const lado = Math.min(img.width, img.height);
+          const sx = (img.width - lado) / 2;
+          const sy = (img.height - lado) / 2;
+          ctx.drawImage(img, sx, sy, lado, lado, 0, 0, size, size);
+          resolve(canvas.toDataURL('image/webp', 0.85));
+        };
+        img.onerror = reject;
+        img.src = reader.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── Submit ──
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const datos: any = Object.fromEntries(new FormData(form).entries());
@@ -125,7 +221,9 @@ const rolLabels: Record<string, string> = {
         throw new Error(j.error || 'Error');
       }
       estado.className = 'rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 text-sm';
-      estado.textContent = '✓ Perfil actualizado';
+      estado.textContent = '✓ Perfil actualizado. Recarga para ver el cambio en toda la UI.';
+      // Auto-reload 1.2s para que sidebar refleje
+      setTimeout(() => location.reload(), 1200);
     } catch (err: any) {
       estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
       estado.textContent = '✗ ' + err.message;

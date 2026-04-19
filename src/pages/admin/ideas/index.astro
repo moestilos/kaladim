@@ -98,76 +98,75 @@ const stats = {
   )}
 
   <!-- ═══ Stats ═══ -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-    <div class="tarjeta p-4">
-      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Total ideas</div>
-      <div class="mt-1 text-2xl font-display font-bold text-white">{stats.total}</div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
+    <div class="tarjeta p-3 sm:p-4">
+      <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-carbon-500">Total</div>
+      <div class="mt-1 text-xl sm:text-2xl font-display font-bold text-white">{stats.total}</div>
     </div>
-    <div class="tarjeta p-4">
-      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Activas</div>
-      <div class="mt-1 text-2xl font-display font-bold text-violeta-300">{stats.activas}</div>
+    <div class="tarjeta p-3 sm:p-4">
+      <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-carbon-500">Activas</div>
+      <div class="mt-1 text-xl sm:text-2xl font-display font-bold text-violeta-300">{stats.activas}</div>
     </div>
-    <div class="tarjeta p-4">
-      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Implementadas</div>
-      <div class="mt-1 text-2xl font-display font-bold text-emerald-400">{stats.implementadas}</div>
+    <div class="tarjeta p-3 sm:p-4">
+      <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-carbon-500">Hechas</div>
+      <div class="mt-1 text-xl sm:text-2xl font-display font-bold text-emerald-400">{stats.implementadas}</div>
     </div>
-    <div class="tarjeta p-4">
-      <div class="text-[10px] uppercase tracking-wider text-carbon-500">Ratio</div>
-      <div class="mt-1 flex items-baseline gap-2">
-        <span class="text-2xl font-display font-bold text-white">{stats.ratio}%</span>
-        <span class="text-[10px] text-carbon-500">completadas</span>
+    <div class="tarjeta p-3 sm:p-4">
+      <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-carbon-500">Ratio</div>
+      <div class="mt-1 flex items-baseline gap-1">
+        <span class="text-xl sm:text-2xl font-display font-bold text-white">{stats.ratio}%</span>
       </div>
     </div>
   </div>
 
   <!-- ═══ Quick-add ═══ -->
-  <form id="quick-add" class="tarjeta p-4 mb-4">
-    <div class="flex flex-col sm:flex-row gap-2">
-      <div class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-carbon-700 bg-carbon-900 focus-within:border-violeta-500 transition">
-        <span class="text-lg text-carbon-500">💡</span>
-        <input
-          id="input-quick"
-          type="text"
-          placeholder="¿Qué idea se te ocurre? (Enter para guardar)"
-          maxlength="200"
-          class="flex-1 bg-transparent text-sm text-white placeholder:text-carbon-500 focus:outline-none"
-        />
-      </div>
-      <select id="quick-tipo" class="input py-2 text-sm sm:max-w-[140px]">
-        <option value="feature">Feature</option>
-        <option value="mejora">Mejora</option>
-        <option value="bug">Bug</option>
-        <option value="cliente">Cliente</option>
-        <option value="interno">Interno</option>
+  <form id="quick-add" class="tarjeta p-3 sm:p-4 mb-3 sm:mb-4">
+    <div class="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-carbon-700 bg-carbon-900 focus-within:border-violeta-500 transition">
+      <span class="text-lg text-carbon-500 shrink-0">💡</span>
+      <input
+        id="input-quick"
+        type="text"
+        placeholder="¿Qué idea tienes?"
+        maxlength="200"
+        class="flex-1 min-w-0 bg-transparent text-sm text-white placeholder:text-carbon-500 focus:outline-none"
+      />
+    </div>
+    <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
+      <select id="quick-tipo" class="input py-2 text-sm">
+        <option value="feature">✨ Feature</option>
+        <option value="mejora">⚡ Mejora</option>
+        <option value="bug">🐛 Bug</option>
+        <option value="cliente">💬 Cliente</option>
+        <option value="interno">🔧 Interno</option>
       </select>
-      <button type="submit" class="btn-primario text-sm">+ Añadir</button>
+      <button type="submit" class="btn-primario text-sm px-4">+ Añadir</button>
     </div>
   </form>
 
   <!-- ═══ Filtros + vistas ═══ -->
-  <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
-    <div class="flex gap-1 p-1 rounded-lg bg-carbon-900 border border-carbon-800 overflow-x-auto">
-      <button data-estado="" class="btn-filtro-estado activa px-2.5 py-1 text-xs rounded bg-carbon-800 text-white whitespace-nowrap">Todas</button>
-      <button data-estado="idea" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Ideas</button>
-      <button data-estado="considerando" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Considerando</button>
-      <button data-estado="planificada" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Planificadas</button>
-      <button data-estado="en_progreso" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">En progreso</button>
-      <button data-estado="implementada" class="btn-filtro-estado px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white whitespace-nowrap">Implementadas</button>
+  <div class="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3 mb-3 sm:mb-4">
+    <!-- Tabs estado: scroll horizontal -->
+    <div class="flex gap-1 p-1 rounded-lg bg-carbon-900 border border-carbon-800 overflow-x-auto -mx-1 px-1 sm:mx-0">
+      <button data-estado="" class="btn-filtro-estado activa shrink-0 px-3 py-1.5 text-xs rounded bg-carbon-800 text-white">Todas</button>
+      <button data-estado="idea" class="btn-filtro-estado shrink-0 px-3 py-1.5 text-xs rounded text-carbon-400 hover:text-white">Ideas</button>
+      <button data-estado="considerando" class="btn-filtro-estado shrink-0 px-3 py-1.5 text-xs rounded text-carbon-400 hover:text-white">Considerando</button>
+      <button data-estado="planificada" class="btn-filtro-estado shrink-0 px-3 py-1.5 text-xs rounded text-carbon-400 hover:text-white">Planificadas</button>
+      <button data-estado="en_progreso" class="btn-filtro-estado shrink-0 px-3 py-1.5 text-xs rounded text-carbon-400 hover:text-white">En progreso</button>
+      <button data-estado="implementada" class="btn-filtro-estado shrink-0 px-3 py-1.5 text-xs rounded text-carbon-400 hover:text-white">Hechas</button>
     </div>
 
     <div class="flex items-center gap-2 sm:ml-auto">
-      <label class="text-xs text-carbon-400 whitespace-nowrap">Ordenar:</label>
-      <select id="orden" class="input py-1.5 text-xs w-auto">
-        <option value="recientes">Recientes</option>
-        <option value="votos">Más votadas</option>
-        <option value="impacto">Mayor impacto</option>
-        <option value="quickwins">Quick wins</option>
+      <select id="orden" class="input py-1.5 text-xs flex-1 sm:flex-initial sm:w-auto">
+        <option value="recientes">↻ Recientes</option>
+        <option value="votos">♥ Más votadas</option>
+        <option value="impacto">↑ Mayor impacto</option>
+        <option value="quickwins">⚡ Quick wins</option>
       </select>
-      <div class="flex gap-1 p-1 rounded-lg bg-carbon-900 border border-carbon-800">
-        <button id="vista-lista" class="btn-vista activa p-1.5 rounded bg-carbon-800 text-white" title="Lista">
+      <div class="flex gap-1 p-1 rounded-lg bg-carbon-900 border border-carbon-800 shrink-0">
+        <button id="vista-lista" class="btn-vista activa p-2 rounded bg-carbon-800 text-white" title="Lista">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke-linecap="round"/></svg>
         </button>
-        <button id="vista-matriz" class="btn-vista p-1.5 rounded text-carbon-400 hover:text-white" title="Matriz impacto × esfuerzo">
+        <button id="vista-matriz" class="btn-vista p-2 rounded text-carbon-400 hover:text-white" title="Matriz impacto × esfuerzo">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>
         </button>
       </div>
@@ -184,7 +183,7 @@ const stats = {
         <h3 class="text-sm font-semibold text-white">Matriz de priorización</h3>
         <div class="text-xs text-carbon-500 font-mono">Y = impacto · X = esfuerzo</div>
       </div>
-      <div class="relative w-full aspect-square sm:aspect-[2/1] bg-carbon-950/50 rounded-lg border border-carbon-800 overflow-hidden">
+      <div class="relative w-full aspect-square sm:aspect-[3/2] bg-carbon-950/50 rounded-lg border border-carbon-800 overflow-hidden">
         <!-- Cuadrantes -->
         <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
           <div class="border-r border-b border-carbon-800/60 bg-emerald-500/[0.03] relative">
@@ -442,7 +441,7 @@ const stats = {
           style="left: ${left}%; top: ${top}%;"
           title="${escHtml(i.titulo)}"
         >
-          <span class="block h-3 w-3 sm:h-4 sm:w-4 rounded-full ${color} shadow-lg ring-2 ring-carbon-950 group-hover:scale-150 transition"></span>
+          <span class="block h-4 w-4 sm:h-5 sm:w-5 rounded-full ${color} shadow-lg ring-2 ring-carbon-950 group-hover:scale-150 transition"></span>
           <span class="absolute -top-1 left-full ml-2 whitespace-nowrap text-xs text-white bg-carbon-900 border border-carbon-700 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none z-20">
             ${escHtml(i.titulo)} · ${i.votos} votos
           </span>

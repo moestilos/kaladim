@@ -10,34 +10,45 @@ import { hashearIp, obtenerIp, esBot, registrarVisitaAsync } from './lib/utilida
 
 const SUPER_ADMINS = ['gmateosoficial@gmail.com'];
 
-async function garantizarUsuarioEnDb(email: string, nombre: string, avatarUrl: string | null): Promise<string> {
-  if (!import.meta.env.DATABASE_URL && !process.env.DATABASE_URL) return 'admin';
+type UsuarioLocal = {
+  rol: string;
+  nombre: string;
+  nombreUsuario: string | null;
+  avatarUrl: string | null;
+};
+
+async function garantizarUsuarioEnDb(email: string, nombre: string, avatarGoogle: string | null): Promise<UsuarioLocal> {
   const esSuperAdmin = SUPER_ADMINS.includes(email.toLowerCase());
+  if (!import.meta.env.DATABASE_URL && !process.env.DATABASE_URL) {
+    return { rol: esSuperAdmin ? 'admin' : 'viewer', nombre, nombreUsuario: null, avatarUrl: avatarGoogle };
+  }
   try {
     const [existente] = await db.select().from(esquema.usuarios).where(eq(esquema.usuarios.email, email));
     if (existente) {
-      // Si es superadmin pero su rol en DB no es admin → corregir
       if (esSuperAdmin && existente.rol !== 'admin') {
         await db.update(esquema.usuarios)
           .set({ rol: 'admin', activo: true, ultimoAcceso: new Date() })
           .where(eq(esquema.usuarios.email, email));
-        return 'admin';
+        return { rol: 'admin', nombre: existente.nombre, nombreUsuario: existente.nombreUsuario, avatarUrl: existente.avatarUrl };
       }
-      // Actualizar último acceso
       await db.update(esquema.usuarios)
         .set({ ultimoAcceso: new Date() })
         .where(eq(esquema.usuarios.email, email));
-      return existente.rol;
+      return {
+        rol: existente.rol,
+        nombre: existente.nombre,
+        nombreUsuario: existente.nombreUsuario,
+        avatarUrl: existente.avatarUrl,
+      };
     }
-    // No existe — crear. Superadmin o primer usuario → admin, resto viewer
     const rol = esSuperAdmin ? 'admin' : 'viewer';
-    await db.insert(esquema.usuarios).values({
-      email, nombre, avatarUrl, rol: rol as any, ultimoAcceso: new Date(),
-    });
-    return rol;
+    const [creado] = await db.insert(esquema.usuarios).values({
+      email, nombre, avatarUrl: avatarGoogle, rol: rol as any, ultimoAcceso: new Date(),
+    }).returning();
+    return { rol, nombre: creado.nombre, nombreUsuario: creado.nombreUsuario, avatarUrl: creado.avatarUrl };
   } catch (e) {
     console.error('[middleware upsert]', (e as Error).message);
-    return esSuperAdmin ? 'admin' : 'viewer';
+    return { rol: esSuperAdmin ? 'admin' : 'viewer', nombre, nombreUsuario: null, avatarUrl: avatarGoogle };
   }
 }
 
@@ -113,20 +124,21 @@ const middlewareApp = defineMiddleware(async (context, next) => {
     return context.redirect('/entrar?volver=' + encodeURIComponent(url.pathname));
   }
 
-  // Upsert + cargar rol desde DB (sobreescribe rol del token)
   const email = sesion.user.email ?? '';
-  const nombre = sesion.user.name ?? email;
-  const rolDb = await garantizarUsuarioEnDb(email, nombre, sesion.user.image ?? null);
+  const nombreGoogle = sesion.user.name ?? email;
+  const dato = await garantizarUsuarioEnDb(email, nombreGoogle, sesion.user.image ?? null);
 
-  if (rolDb === 'cliente') return context.redirect('/sin-acceso');
+  if (dato.rol === 'cliente') return context.redirect('/sin-acceso');
 
   context.locals.sesion = sesion;
+  // Nombre mostrado: prioridad nombreUsuario DB > nombre DB > nombre Google
+  const nombreMostrar = dato.nombreUsuario || dato.nombre || nombreGoogle;
   context.locals.usuario = {
     id: (sesion.user as any).id,
     email,
-    name: nombre,
-    image: sesion.user.image ?? null,
-    rol: rolDb as any,
+    name: nombreMostrar,
+    image: dato.avatarUrl ?? sesion.user.image ?? null,
+    rol: dato.rol as any,
   };
   return next();
 });

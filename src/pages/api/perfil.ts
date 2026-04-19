@@ -13,7 +13,14 @@ const esquemaPerfil = z.object({
   nombreUsuario: z.preprocess((v) => (v === '' ? null : v), z.string().min(2).max(60).nullable().optional()),
   telefono: z.preprocess((v) => (v === '' ? null : v), z.string().max(40).nullable().optional()),
   bio: z.preprocess((v) => (v === '' ? null : v), z.string().max(500).nullable().optional()),
-  avatarUrl: z.preprocess((v) => (v === '' ? null : v), z.string().url().max(1000).nullable().optional()),
+  // Permitir URL http(s) o data URL (base64 imagen) hasta ~500KB
+  avatarUrl: z.preprocess(
+    (v) => (v === '' ? null : v),
+    z.string().max(700_000).refine(
+      (s) => /^https?:\/\//.test(s) || /^data:image\/(png|jpeg|jpg|webp);base64,/.test(s),
+      'URL o data:image inválido',
+    ).nullable().optional(),
+  ),
 });
 
 export const GET: APIRoute = async ({ request }) => {

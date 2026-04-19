@@ -1,182 +1,337 @@
-# Kaladim — Plataforma SaaS
+# 🪐 Kaladim
 
-Agencia digital: webs profesionales + automatizaciones n8n para empresas.
-Incluye web corporativa pública + panel de administración interno.
+> **Plataforma SaaS full-stack para una agencia digital.**
+> Landing pública + panel admin con gestión de proyectos, ideario, analíticas, kanban y roles.
+
+🔗 **Producción:** [kaladim.vercel.app](https://kaladim.vercel.app)
+📦 **Repo:** [github.com/moestilos/kaladim](https://github.com/moestilos/kaladim)
+
+---
+
+## 🎯 Qué hace
+
+### Web pública
+- Landing con hero split, servicios, apps lanzadas (case studies editables),
+  sección visual n8n, beneficios, proceso, captura de leads.
+- Paleta de 9 temas de color (cambiables en vivo con ⌘K).
+- Fondo animado tipo constelación reactivo al mouse.
+- Formulario contacto → tabla `leads`.
+
+### Panel admin (`/admin`)
+- **Dashboard** — métricas + gráfica visitas 7/30/90 días + top páginas/referrers.
+- **Clientes** — CRUD completo (empresa, contacto, sector, notas).
+- **Proyectos** — CRUD + cliente asociado, estado lifecycle, presupuesto, progreso.
+- **Servicios** — CRUD + proyecto asociado, tipo, precio, recurrencia.
+- **Apps lanzadas** — CRUD portfolio con editor de sparklines, métricas editables, pills tech.
+- **Kanban** — columnas personalizables, drag & drop (DnD desktop + botones ↑↓←→ móvil),
+  vínculo tarjeta ↔ proyecto, polling 8s sincroniza entre pestañas.
+- **Ideario** — captura rápida, scoring impacto×esfuerzo, voto único por admin,
+  matriz de priorización 2D (Quick Wins / Big Bets / Fill-ins / Time Sinks),
+  convertir idea en proyecto.
+- **Usuarios y roles** — 4 roles (admin / editor / viewer / cliente),
+  invitar por email, cambio de rol inline, toggle activo.
+- **Mi perfil** — nombre, alias, teléfono, bio, upload de foto (resize 256×256 webp).
+- **Leads** — listado con búsqueda.
+
+### Sistema
+- **Auth** Google OAuth (Auth.js) + superuser hardcoded.
+- **Analytics propias** — middleware tracking con hash de IP (privacidad),
+  agregación 7/30/90d, top rutas + referrers, detección de bots.
+- **Paleta de comandos** ⌘K — navegación + cambio tema instantáneo.
+- **Modo dev local:** `DEV_ADMIN_BYPASS=true` en `.env` para ver admin sin OAuth.
+
+---
 
 ## 🛠 Stack
 
 | Capa | Tecnología |
 |------|-----------|
 | Frontend + Backend | **Astro 5** (SSR) |
-| Estilos | **Tailwind CSS 3** |
-| Base de datos | **Neon Postgres** |
-| ORM | **Drizzle** |
-| Auth | **Auth.js** (Google OAuth) via `auth-astro` |
+| Estilos | **Tailwind CSS 3** (CSS vars para temas) |
+| DB | **Neon Postgres** (serverless) |
+| ORM | **Drizzle** + drizzle-kit |
+| Auth | **Auth.js** + `auth-astro` (Google OAuth) |
 | Validación | **Zod** |
-| Deploy local | `@astrojs/node` |
-| Deploy producción | Vercel (`@astrojs/vercel`) |
+| Deploy | **Vercel** (serverless functions) |
+| Tipografías | Satoshi (Fontshare) + Instrument Serif + JetBrains Mono |
+
+---
 
 ## 📁 Estructura
 
 ```
-kaladim/
-├── src/
-│   ├── pages/                    # rutas Astro (convención framework)
-│   │   ├── index.astro           # landing pública
-│   │   ├── entrar.astro          # login Google
-│   │   ├── sin-acceso.astro      # 403
-│   │   ├── admin/                # panel privado (protegido)
-│   │   │   ├── index.astro       # dashboard con métricas
-│   │   │   ├── clientes/         # CRUD completo (plantilla)
-│   │   │   ├── proyectos/
-│   │   │   ├── servicios/
-│   │   │   ├── automatizaciones/
-│   │   │   ├── usuarios/
-│   │   │   └── leads/
-│   │   └── api/                  # endpoints REST
-│   │       ├── leads.ts          # POST público (formulario contacto)
-│   │       └── clientes/         # GET/POST/PATCH/DELETE
-│   ├── componentes/
-│   │   ├── landing/              # Hero, Servicios, Automatizaciones, …
-│   │   ├── admin/                # BarraLateral, TablaDatos, FormularioCliente, …
-│   │   └── ui/                   # Boton, Logo, Insignia (primitivos)
-│   ├── layouts/
-│   │   ├── LayoutPublico.astro   # nav pública + footer
-│   │   └── LayoutAdmin.astro     # sidebar admin
-│   ├── lib/
-│   │   ├── db/
-│   │   │   ├── esquema.ts        # schema Drizzle (todas las tablas)
-│   │   │   └── cliente.ts        # singleton conexión lazy
-│   │   └── utilidades/
-│   │       ├── validaciones.ts   # esquemas Zod
-│   │       └── autorizacion.ts   # helper requerirAdmin()
-│   ├── estilos/global.css        # Tailwind + componentes custom
-│   ├── middleware.ts             # protección /admin/*
-│   └── env.d.ts
-├── public/
-├── drizzle/                      # migraciones SQL (auto-generadas)
-├── auth.config.ts                # config Google OAuth
-├── astro.config.mjs
-├── tailwind.config.mjs           # paleta carbon + violeta + animaciones
-├── drizzle.config.ts
-├── .env.example
-└── package.json
+src/
+├── pages/                      # Rutas (Astro convention)
+│   ├── index.astro             # Landing
+│   ├── entrar.astro            # Login Google
+│   ├── sin-acceso.astro
+│   ├── admin/                  # Panel privado (middleware protege)
+│   │   ├── index.astro         # Dashboard
+│   │   ├── clientes/           # CRUD
+│   │   ├── proyectos/          # CRUD
+│   │   ├── servicios/          # CRUD
+│   │   ├── casos/              # CRUD "Apps lanzadas"
+│   │   ├── kanban.astro        # Tablero realtime
+│   │   ├── ideas/              # Ideario
+│   │   ├── usuarios/           # Gestión + roles
+│   │   ├── perfil.astro        # Propio perfil
+│   │   ├── automatizaciones/   # Stub
+│   │   └── leads/              # Listado
+│   └── api/                    # Endpoints REST (GET/POST/PATCH/DELETE)
+│       ├── leads.ts            # POST público (form contacto)
+│       ├── clientes/           # CRUD
+│       ├── proyectos/          # CRUD
+│       ├── servicios/          # CRUD
+│       ├── casos/              # CRUD apps
+│       ├── ideas/              # CRUD + votar + convertir
+│       ├── kanban/             # CRUD + reordenar
+│       ├── usuarios/           # CRUD (admin estricto)
+│       ├── perfil.ts           # GET/PATCH propio
+│       ├── estadisticas/       # Analytics agregadas
+│       └── auth/               # Auth.js endpoints
+│
+├── componentes/
+│   ├── landing/                # Hero, Servicios, CasosEstudio, etc.
+│   ├── admin/                  # BarraLateral, TablaDatos, formularios, GraficaVisitas
+│   └── ui/                     # Logo, Boton, Insignia, FondoConstelacion, PaletaComandos
+│
+├── layouts/
+│   ├── LayoutPublico.astro     # Nav pill + footer + constelación
+│   └── LayoutAdmin.astro       # Sidebar + header + paleta
+│
+├── lib/
+│   ├── db/
+│   │   ├── esquema.ts          # Tablas Drizzle (11+ tablas)
+│   │   └── cliente.ts          # Conexión lazy Neon
+│   └── utilidades/
+│       ├── autorizacion.ts     # obtenerAdmin / requerirAdmin / requerirAdminEstricto
+│       ├── validaciones.ts     # Esquemas Zod por entidad
+│       └── analiticas.ts       # Tracking visitas + agregaciones
+│
+├── estilos/global.css          # Tailwind + temas CSS vars + clases reutilizables
+└── middleware.ts               # Auth + upsert usuario + tracking + patch URL Vercel
+
+auth.config.ts                  # Google OAuth config + superadmin hardcoded
+drizzle.config.ts               # drizzle-kit config
+astro.config.mjs                # Astro + Vercel adapter + security
+tailwind.config.mjs             # Paleta acento via var(--acento-*)
 ```
 
-## 🚀 Arranque rápido (local)
+---
+
+## 🚀 Empezar en local (5 min)
+
+### 1. Requisitos
+- Node 20+
+- Cuenta Neon (gratis, [neon.tech](https://neon.tech))
+- Cuenta Google Cloud (solo si quieres OAuth real, opcional para dev)
+
+### 2. Clonar e instalar
 
 ```bash
-# 1. Instalar dependencias
+git clone https://github.com/moestilos/kaladim.git
+cd kaladim
 npm install
-
-# 2. Copiar env y rellenar (mínimo AUTH_SECRET para arrancar)
-cp .env.example .env
-# El dev server arranca sin DATABASE_URL: las páginas muestran datos de ejemplo.
-
-# 3. Arrancar dev
-npm run dev
-# → http://localhost:4321
 ```
 
-Sin `DATABASE_URL` verás la landing, panel admin en modo demo (datos mock), y formularios operativos pero no persistentes.
-
-## 🗄 Configurar Neon + schema
+### 3. Variables de entorno
 
 ```bash
-# 1. Crea proyecto en https://neon.tech y copia la connection string.
-# 2. Pégala en .env:
-#    DATABASE_URL=postgres://usuario:pass@...neon.tech/kaladim?sslmode=require
-
-# 3. Aplicar schema (push directo, dev-friendly):
-npm run db:push
-
-# O generar migración versionada:
-npm run db:generate   # crea SQL en drizzle/
-# Aplicar manualmente o con:
-npm run db:push
-
-# 4. Explorar datos visualmente:
-npm run db:studio
+cp .env.example .env
 ```
 
-### Tablas creadas
+Edita `.env`. Mínimo para dev sin auth:
 
-- `usuarios` — admins y clientes con acceso
-- `clientes` — empresas contratantes
-- `proyectos` — entregables por cliente
-- `servicios_contratados` — líneas de servicio por proyecto
-- `automatizaciones` — flujos n8n vinculados a clientes
-- `leads` — contactos capturados desde la web
-- Enums: `rol_usuario`, `estado_proyecto`, `tipo_servicio`, `estado_automatizacion`
-
-## 🔐 Google OAuth
-
-1. Ir a [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials.
-2. Crear **OAuth Client ID** tipo "Web application".
-3. URIs autorizadas:
-   - **Origen:** `http://localhost:4321` (dev) · `https://tu-dominio.com` (prod)
-   - **Redirect:** `http://localhost:4321/api/auth/callback/google` · equivalente prod
-4. Copiar `Client ID` y `Client Secret` a `.env`.
-5. Añadir tu email a `ADMIN_EMAILS` (coma-separados) para obtener rol admin.
-6. Generar `AUTH_SECRET`: `openssl rand -base64 32`.
-
-## ☁ Deploy en Vercel
-
-1. Cambiar adapter en `astro.config.mjs`:
-
-```js
-import vercel from '@astrojs/vercel';
-export default defineConfig({
-  output: 'server',
-  adapter: vercel(),
-  integrations: [tailwind({ applyBaseStyles: false }), auth()],
-});
+```env
+AUTH_SECRET=cambiar-cualquier-string-largo-aleatorio
+DEV_ADMIN_BYPASS=true
 ```
 
-2. Push del repo a GitHub.
-3. Importar en Vercel, añadir las env vars (`DATABASE_URL`, `AUTH_SECRET`, `GOOGLE_*`, `ADMIN_EMAILS`).
-4. Deploy automático.
+Con eso entras al admin sin login: `http://localhost:4321/admin`.
 
-> Neon se integra nativamente con Vercel: activa la extensión y conecta el proyecto.
+### 4. (Opcional) Conectar DB
 
-## 🧩 CRUD completo vs plantilla
+Para persistencia real:
 
-**Clientes** está implementado 100%: listado, crear, editar, eliminar, API REST.
-Úsalo como **plantilla** para replicar `proyectos`, `servicios`, `automatizaciones`, `usuarios`:
+```env
+DATABASE_URL=postgres://user:pass@xxx.neon.tech/neondb?sslmode=require
+```
 
-1. Copiar `src/componentes/admin/FormularioCliente.astro` → `FormularioXxx.astro`, ajustar campos.
-2. Copiar `src/pages/admin/clientes/{index,nuevo,[id]}.astro` → carpeta equivalente.
-3. Copiar `src/pages/api/clientes/{index,[id]}.ts` → API de la nueva entidad.
-4. Usar el esquema Zod correspondiente de `src/lib/utilidades/validaciones.ts`.
+Aplicar schema:
 
-## 🎨 Paleta y sistema de diseño
+```bash
+npm run db:push    # crea todas las tablas en Neon
+```
 
-- `carbon-*` — escala de grises fríos (fondos, bordes)
-- `violeta-*` — acento principal `#7C3AED`
-- Utilidades: `.tarjeta`, `.tarjeta-glass`, `.btn-primario`, `.texto-gradiente`, `.brillo-violeta`, `.fondo-grid`
-- Animaciones custom: `animate-aparecer`, `animate-flotar`, `animate-brillar`
+### 5. Arrancar
 
-## 🧠 Ideas de evolución SaaS
+```bash
+npm run dev
+```
 
-- Portal cliente: cada empresa ve sus proyectos/facturas
-- Facturación automática (Stripe + n8n)
-- Integración webhook con n8n para sync automático de métricas `ejecucionesTotales`
-- Marketplace de plantillas de automatización
-- Multi-tenancy (organizaciones con múltiples usuarios)
-- Feed de actividad en tiempo real (Server-Sent Events)
-- Panel de métricas avanzado (Recharts + Drizzle queries)
+→ `http://localhost:4321`
+
+---
+
+## 🔐 Auth Google (para producción)
+
+1. [Google Cloud Console](https://console.cloud.google.com) → New Project → "Kaladim"
+2. APIs & Services → OAuth consent screen → **External** → Test users: tu email
+3. Credentials → Create OAuth Client ID → **Web application**
+   - Authorized JavaScript origins: `https://tudominio.com`, `http://localhost:4321`
+   - Authorized redirect URIs: `https://tudominio.com/api/auth/callback/google` (+ localhost)
+4. Añadir al `.env` de Vercel:
+
+```env
+GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxx
+ADMIN_EMAILS=tu@email.com,otro@email.com
+AUTH_URL=https://tudominio.com/api/auth
+AUTH_TRUST_HOST=true
+AUTH_SECRET=xxxx     # openssl rand -base64 32
+DEV_ADMIN_BYPASS=false
+```
+
+**Superuser hardcoded:** `gmateosoficial@gmail.com` siempre es admin (ver `src/middleware.ts`).
+Cambiar el email ahí si eres otra persona manteniendo este repo.
+
+---
+
+## 👥 Sistema de roles
+
+| Rol | Accede panel | Crea/edita | Gestiona usuarios |
+|-----|-------------|-----------|-------------------|
+| `admin` | ✅ | ✅ | ✅ |
+| `editor` | ✅ | ✅ | ❌ |
+| `viewer` | ✅ (solo lectura) | ❌ | ❌ |
+| `cliente` | ❌ | ❌ | ❌ |
+
+- **Primer usuario** que entra → auto-admin (bootstrap).
+- **Superuser** hardcoded (ver arriba) → siempre admin aunque alguien le cambie rol.
+- Los nuevos usuarios invitados por email acceden al hacer login con Google usando ese email.
+- Cambio de rol vía `/admin/usuarios` (solo admin).
+
+---
+
+## 🎨 Temas de color
+
+9 paletas en `src/estilos/global.css` como `:root[data-tema="x"]`. Todo el UI acento
+(botones, badges, gráficas, constelación, logo) resuelve vía `rgb(var(--acento-*))`
+→ cambio instantáneo sin recargar.
+
+- `violeta` (default) · `neon` (verde neón) · `verde` esmeralda
+- `cian` · `azul` · `rosa` · `amarillo` · `naranja` · `rojo`
+
+Cambiar desde **⌘K → Tema de color**.
+
+---
 
 ## 📜 Comandos
 
 | Comando | Descripción |
 |---------|------------|
-| `npm run dev` | Dev server en :4321 |
+| `npm run dev` | Dev server :4321 |
 | `npm run build` | Build producción |
-| `npm run preview` | Preview local del build |
-| `npm run db:push` | Aplicar schema a Neon |
-| `npm run db:generate` | Generar migración SQL |
-| `npm run db:studio` | UI web para explorar DB |
+| `npm run db:push` | Aplicar schema a Neon (sync, sin migración) |
+| `npm run db:generate` | Generar migración SQL versionada |
+| `npm run db:studio` | UI navegador para explorar DB |
 
 ---
 
-Hecho con ❤ para clientes reales.
+## 🧩 Tablas principales (Drizzle)
+
+```
+usuarios              — login + rol + datos perfil (bio, telefono, avatar, nombreUsuario)
+clientes              — empresas contratantes
+proyectos             — entregables (FK cliente)
+servicios_contratados — líneas de servicio (FK proyecto)
+casos_estudio         — portfolio (slug, métricas JSON, sparkline)
+ideas                 — roadmap (impacto, esfuerzo, estado lifecycle)
+idea_votos            — voto único por usuario (unique idea_id + email)
+kanban_columnas       — columnas tablero
+kanban_tarjetas       — tarjetas (FK columna, proyecto opcional)
+leads                 — contactos web pública
+visitas               — analytics (ip_hash, ruta, referrer, país)
+configuracion_sitio   — clave/valor (futuro: textos landing editables)
+```
+
+Enums: `rol_usuario`, `estado_proyecto`, `tipo_servicio`, `estado_automatizacion`,
+`prioridad_tarjeta`, `tipo_idea`, `estado_idea`.
+
+---
+
+## 🧠 Patrones clave
+
+### Proteger una ruta API
+```ts
+import { obtenerAdmin, requerirAdminEstricto } from '@/lib/utilidades/autorizacion';
+
+export const POST: APIRoute = async ({ request }) => {
+  const auth = await obtenerAdmin(request);
+  if (auth instanceof Response) return auth;   // 401/403
+  // auth.email / auth.rol / auth.nombre disponibles
+  // ...
+};
+
+// Para acciones sensibles (solo rol admin):
+const err = await requerirAdminEstricto(request);
+if (err) return err;
+```
+
+### Middleware protege `/admin/*`
+- Redirige a `/entrar` si no hay sesión.
+- Upsert usuario en DB en cada request (nombre, avatar, último acceso).
+- Aplica rol desde DB (sobreescribe token).
+- `context.locals.usuario` disponible en todas las páginas admin.
+
+### Temas con CSS vars
+En vez de `bg-purple-600` usa `bg-violeta-600`. Tailwind config mapea
+`violeta-X` → `rgb(var(--acento-X) / <alpha-value>)`. Cambiar el atributo
+`data-tema` en `<html>` → toda la UI se actualiza.
+
+---
+
+## 🚢 Deploy en Vercel
+
+1. Push a GitHub.
+2. Vercel dashboard → Import → conectar repo.
+3. Storage → Create Database → **Neon** → conectar al proyecto (auto-inyecta `DATABASE_URL`).
+4. Settings → Environment Variables → añadir las de auth (ver arriba).
+5. Deploy automático en cada push a `main`.
+
+**Adapter:** ya configurado `@astrojs/vercel` en `astro.config.mjs`.
+El middleware incluye un fix específico para Vercel (reescribe request URL
+desde headers `x-forwarded-host` porque Auth.js veía `https://localhost/...`).
+
+---
+
+## 🤝 Contribuir
+
+1. Rama desde `main`: `git checkout -b feat/xxx`
+2. Los commits usan Conventional Commits: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`
+3. PR hacia `main`. Cada merge a `main` → deploy automático.
+4. Si modificas schema Drizzle (`src/lib/db/esquema.ts`):
+   - Local: `npm run db:push` (o `db:generate` + revisar SQL).
+   - Prod: Vercel no corre migraciones automáticas. Haz `npm run db:push`
+     localmente contra la URL de prod (o usa Drizzle Studio).
+
+---
+
+## 📝 Notas técnicas
+
+- **Auth.js + Vercel:** hubo que parchear URL en middleware porque
+  `request.url` llegaba como `https://localhost/...`. Ver `src/middleware.ts`.
+- **Astro security.checkOrigin:** desactivado en `astro.config.mjs` porque
+  bloqueaba POSTs de Auth.js (CSRF del propio Auth.js ya protege).
+- **Avatar upload:** cliente redimensiona a 256×256 webp y guarda como data URL
+  en DB (evita depender de Vercel Blob o servicio externo).
+- **Polling kanban:** 8s con locks (pausa si estás arrastrando o con modal abierto).
+
+---
+
+## 🪪 Créditos
+
+Diseñado y desarrollado por **[moestilos](https://github.com/moestilos)**
+· [Portfolio](https://moestilos-git-main-moestilos-projects.vercel.app/)
+
+Hecho con ❤ y café ☕.
