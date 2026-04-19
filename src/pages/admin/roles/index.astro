@@ -1,0 +1,399 @@
+---
+// Gestión de roles y permisos (solo admin).
+// Matriz secciones × acciones con checkboxes + editor CRUD roles.
+
+import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
+import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
+import { db, esquema } from '../../../lib/db/cliente';
+import { asc } from 'drizzle-orm';
+import { CATALOGO_PERMISOS, asegurarRolesSistema } from '../../../lib/utilidades/permisos';
+
+export const prerender = false;
+
+let roles: any[] = [];
+let errorMsg: string | null = null;
+let modoDemo = false;
+
+try {
+  if (import.meta.env.DATABASE_URL) {
+    await asegurarRolesSistema();
+    roles = await db.select().from(esquema.roles).orderBy(asc(esquema.roles.orden), asc(esquema.roles.nombre));
+  } else {
+    modoDemo = true;
+    errorMsg = 'Sin DATABASE_URL — modo demo (cambios no persisten)';
+    roles = [
+      { id: 'r1', slug: 'admin', nombre: 'Administrador', descripcion: 'Acceso total', color: 'violeta', permisos: JSON.stringify(['*']), esSistema: true, orden: 0 },
+      { id: 'r2', slug: 'editor', nombre: 'Editor', descripcion: 'Crea y edita', color: 'emerald', permisos: '[]', esSistema: true, orden: 1 },
+    ];
+  }
+} catch (e) { errorMsg = e instanceof Error ? e.message : 'Error'; }
+
+const rolUsuarioActual = Astro.locals.usuario?.rol ?? 'viewer';
+const puedeGestionar = rolUsuarioActual === 'admin';
+---
+
+<LayoutAdmin titulo="Roles y permisos" subtitulo="Define quién puede hacer qué">
+  <EncabezadoSeccion
+    titulo="Roles y permisos"
+    descripcion={puedeGestionar
+      ? 'Crea roles personalizados y asigna permisos por sección. Los roles sistema no se pueden borrar pero sí editar sus permisos.'
+      : 'Solo lectura — necesitas rol admin.'}
+  />
+
+  {errorMsg && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {errorMsg}</div>}
+
+  <div class="grid lg:grid-cols-[280px_1fr] gap-4 sm:gap-6">
+    <!-- ═══ Columna lateral: lista roles ═══ -->
+    <aside class="lg:sticky lg:top-20 lg:self-start">
+      <div class="tarjeta overflow-hidden">
+        <div class="flex items-center justify-between p-3 border-b border-carbon-800">
+          <h3 class="text-sm font-semibold text-white">Roles</h3>
+          <span id="contador-roles" class="text-xs text-carbon-500">{roles.length}</span>
+        </div>
+        <div id="lista-roles" class="divide-y divide-carbon-800 max-h-[60vh] overflow-y-auto"></div>
+        {puedeGestionar && (
+          <div class="p-3 border-t border-carbon-800">
+            <button id="btn-nuevo-rol" class="btn-secundario text-sm w-full">+ Nuevo rol</button>
+          </div>
+        )}
+      </div>
+    </aside>
+
+    <!-- ═══ Editor rol ═══ -->
+    <section id="editor-rol" class="tarjeta p-4 sm:p-6">
+      <div id="editor-vacio" class="text-center py-16 text-sm text-carbon-500">
+        ← Selecciona un rol para ver y editar sus permisos
+      </div>
+      <div id="editor-contenido" class="hidden space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span id="editor-badge" class="badge badge-info text-[10px]"></span>
+              <span id="editor-sistema" class="text-[10px] font-mono text-amber-300 hidden">sistema · no borrable</span>
+            </div>
+            <input
+              id="editor-nombre"
+              type="text"
+              class="mt-2 w-full bg-transparent border-0 text-2xl font-display font-bold text-white focus:outline-none focus:ring-0 px-0"
+              maxlength="80"
+            />
+            <input
+              id="editor-slug"
+              type="text"
+              class="input text-xs font-mono mt-2 sm:max-w-xs"
+              placeholder="slug-identificador"
+              pattern="[a-z0-9_-]+"
+            />
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <button id="btn-borrar-rol" class="btn-fantasma text-sm text-red-400 hover:text-red-300 hidden">Eliminar</button>
+            <button id="btn-guardar-rol" class="btn-primario text-sm">Guardar</button>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="etiqueta">Descripción</label>
+            <input id="editor-desc" type="text" class="input" maxlength="255" />
+          </div>
+          <div>
+            <label class="etiqueta">Color (chip)</label>
+            <select id="editor-color" class="input">
+              {['carbon', 'violeta', 'emerald', 'amber', 'red', 'cyan', 'rosa', 'azul', 'naranja'].map((c) => (
+                <option value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <!-- Matriz permisos -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-semibold text-white">Permisos</h4>
+            <div class="flex gap-2">
+              <button id="btn-all-permisos" class="text-xs text-violeta-300 hover:text-violeta-200">Marcar todos</button>
+              <span class="text-carbon-700">·</span>
+              <button id="btn-none-permisos" class="text-xs text-carbon-400 hover:text-white">Desmarcar todos</button>
+            </div>
+          </div>
+
+          <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-violeta-500/30 bg-violeta-500/5 cursor-pointer mb-3">
+            <input id="editor-wildcard" type="checkbox" class="accent-violeta-600" />
+            <div>
+              <div class="text-sm text-white font-medium">Acceso total <span class="font-mono text-xs text-violeta-300">*</span></div>
+              <div class="text-xs text-carbon-400">Ignora la matriz: este rol podrá hacer todo (presente y futuro).</div>
+            </div>
+          </label>
+
+          <div id="matriz-permisos" class="space-y-2"></div>
+        </div>
+
+        <div id="estado-editor" class="hidden"></div>
+      </div>
+    </section>
+  </div>
+</LayoutAdmin>
+
+<script id="datos-iniciales" type="application/json" set:html={JSON.stringify({
+  roles,
+  catalogo: CATALOGO_PERMISOS,
+  puedeGestionar,
+  modoDemo,
+})}></script>
+
+<script>
+  type Rol = {
+    id: string; slug: string; nombre: string; descripcion: string | null;
+    color: string; permisos: string; esSistema: boolean; orden: number;
+  };
+
+  const datos = JSON.parse(document.getElementById('datos-iniciales')!.textContent!);
+  let roles: Rol[] = datos.roles;
+  const catalogo: { seccion: string; slug: string; acciones: string[] }[] = datos.catalogo;
+  const puedeGestionar: boolean = datos.puedeGestionar;
+  const modoDemo: boolean = datos.modoDemo;
+
+  let rolSeleccionadoId: string | null = null;
+
+  const colorBadge: Record<string, string> = {
+    violeta: 'bg-violeta-500/15 text-violeta-300 border-violeta-500/30',
+    emerald: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    cyan: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    amber: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    red: 'bg-red-500/15 text-red-300 border-red-500/30',
+    rosa: 'bg-pink-500/15 text-pink-300 border-pink-500/30',
+    azul: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+    naranja: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+    carbon: 'bg-carbon-800 text-carbon-300 border-carbon-700',
+  };
+
+  const lista = document.getElementById('lista-roles')!;
+  const editorVacio = document.getElementById('editor-vacio')!;
+  const editorCont = document.getElementById('editor-contenido')!;
+
+  function escHtml(s: string | null | undefined): string {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function parsePerms(s: string): string[] { try { return JSON.parse(s); } catch { return []; } }
+
+  function renderLista() {
+    (document.getElementById('contador-roles') as HTMLElement).textContent = String(roles.length);
+    lista.innerHTML = roles.map((r) => {
+      const activo = rolSeleccionadoId === r.id;
+      const perms = parsePerms(r.permisos);
+      const nPerms = perms.includes('*') ? '∞' : perms.length;
+      return `
+        <button data-id="${r.id}" class="btn-rol w-full text-left px-3 py-3 flex items-start gap-2.5 hover:bg-carbon-900/60 transition ${activo ? 'bg-violeta-500/10' : ''}">
+          <span class="h-2 w-2 rounded-full mt-1.5 shrink-0 ${r.color === 'violeta' ? 'bg-violeta-500' : r.color === 'emerald' ? 'bg-emerald-500' : r.color === 'cyan' ? 'bg-cyan-500' : r.color === 'amber' ? 'bg-amber-500' : r.color === 'red' ? 'bg-red-500' : r.color === 'rosa' ? 'bg-pink-500' : r.color === 'azul' ? 'bg-blue-500' : r.color === 'naranja' ? 'bg-orange-500' : 'bg-carbon-500'}"></span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-sm font-medium ${activo ? 'text-white' : 'text-carbon-200'} truncate">${escHtml(r.nombre)}</span>
+              ${r.esSistema ? '<span class="text-[9px] font-mono text-amber-300/80">●</span>' : ''}
+            </div>
+            <div class="text-[10px] font-mono text-carbon-500 truncate">${escHtml(r.slug)} · ${nPerms} permisos</div>
+          </div>
+        </button>
+      `;
+    }).join('');
+    lista.querySelectorAll<HTMLButtonElement>('.btn-rol').forEach((b) => {
+      b.addEventListener('click', () => seleccionar(b.dataset.id!));
+    });
+  }
+
+  function renderMatriz(permisosActuales: string[], wildcard: boolean) {
+    const cont = document.getElementById('matriz-permisos')!;
+    cont.innerHTML = catalogo.map((grupo) => {
+      const todos = grupo.acciones.every((a) => permisosActuales.includes(`${grupo.slug}.${a}`));
+      return `
+        <div class="rounded-lg border border-carbon-800 bg-carbon-950/40 p-3 ${wildcard ? 'opacity-50' : ''}">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-sm font-semibold text-white">${escHtml(grupo.seccion)}</div>
+            <button type="button" class="btn-grupo-toggle text-[10px] text-carbon-400 hover:text-violeta-300" data-grupo="${grupo.slug}" data-accion="${todos ? 'desmarcar' : 'marcar'}" ${wildcard ? 'disabled' : ''}>
+              ${todos ? 'Quitar todo' : 'Marcar todo'}
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            ${grupo.acciones.map((a) => {
+              const permiso = `${grupo.slug}.${a}`;
+              const marcado = permisosActuales.includes(permiso);
+              return `
+                <label class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs cursor-pointer select-none transition ${marcado ? 'bg-violeta-500/15 border-violeta-500/40 text-violeta-200' : 'bg-carbon-900 border-carbon-800 text-carbon-400 hover:border-carbon-700'}">
+                  <input type="checkbox" class="chk-permiso accent-violeta-600 h-3.5 w-3.5" data-permiso="${permiso}" ${marcado ? 'checked' : ''} ${wildcard ? 'disabled' : ''}/>
+                  <span class="font-mono">${escHtml(a)}</span>
+                </label>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Bind checkbox individual
+    cont.querySelectorAll<HTMLInputElement>('.chk-permiso').forEach((c) => {
+      c.addEventListener('change', () => actualizarPermisoDesdeUI());
+    });
+    cont.querySelectorAll<HTMLButtonElement>('.btn-grupo-toggle').forEach((b) => {
+      b.addEventListener('click', () => {
+        const slug = b.dataset.grupo!;
+        const accion = b.dataset.accion;
+        const grupo = catalogo.find((g) => g.slug === slug)!;
+        const perms = obtenerPermisosActuales();
+        const filtrados = perms.filter((p) => !p.startsWith(`${slug}.`));
+        const nuevos = accion === 'marcar' ? [...filtrados, ...grupo.acciones.map((a) => `${slug}.${a}`)] : filtrados;
+        renderMatriz(nuevos, false);
+      });
+    });
+  }
+
+  function obtenerPermisosActuales(): string[] {
+    const wildcard = (document.getElementById('editor-wildcard') as HTMLInputElement).checked;
+    if (wildcard) return ['*'];
+    return Array.from(document.querySelectorAll<HTMLInputElement>('.chk-permiso:checked')).map((c) => c.dataset.permiso!);
+  }
+
+  function actualizarPermisoDesdeUI() {
+    // Re-render para refrescar estilos de chips marcados
+    const perms = obtenerPermisosActuales();
+    const wildcard = perms.includes('*');
+    renderMatriz(wildcard ? [] : perms, wildcard);
+  }
+
+  function seleccionar(id: string | 'nuevo') {
+    if (id === 'nuevo') {
+      rolSeleccionadoId = null;
+      abrirEditor({
+        id: '', slug: '', nombre: 'Nuevo rol', descripcion: null,
+        color: 'carbon', permisos: '[]', esSistema: false, orden: 10,
+      } as any);
+      return;
+    }
+    const r = roles.find((x) => x.id === id);
+    if (!r) return;
+    rolSeleccionadoId = id;
+    abrirEditor(r);
+    renderLista();
+  }
+
+  function abrirEditor(r: Rol) {
+    editorVacio.classList.add('hidden');
+    editorCont.classList.remove('hidden');
+
+    (document.getElementById('editor-nombre') as HTMLInputElement).value = r.nombre;
+    (document.getElementById('editor-nombre') as HTMLInputElement).disabled = !puedeGestionar;
+    (document.getElementById('editor-slug') as HTMLInputElement).value = r.slug;
+    (document.getElementById('editor-slug') as HTMLInputElement).disabled = r.esSistema || !r.id || !puedeGestionar;
+    (document.getElementById('editor-desc') as HTMLInputElement).value = r.descripcion ?? '';
+    (document.getElementById('editor-desc') as HTMLInputElement).disabled = !puedeGestionar;
+    (document.getElementById('editor-color') as HTMLSelectElement).value = r.color;
+    (document.getElementById('editor-color') as HTMLSelectElement).disabled = !puedeGestionar;
+
+    const badge = document.getElementById('editor-badge')!;
+    badge.className = `badge text-[10px] border ${colorBadge[r.color] ?? colorBadge.carbon}`;
+    badge.textContent = r.slug || 'nuevo';
+
+    const sistemaLabel = document.getElementById('editor-sistema')!;
+    sistemaLabel.classList.toggle('hidden', !r.esSistema);
+
+    const btnBorrar = document.getElementById('btn-borrar-rol')!;
+    btnBorrar.classList.toggle('hidden', !r.id || r.esSistema || !puedeGestionar);
+
+    (document.getElementById('btn-guardar-rol') as HTMLButtonElement).disabled = !puedeGestionar;
+
+    const perms = parsePerms(r.permisos);
+    const wildcard = perms.includes('*');
+    (document.getElementById('editor-wildcard') as HTMLInputElement).checked = wildcard;
+    (document.getElementById('editor-wildcard') as HTMLInputElement).disabled = !puedeGestionar;
+    renderMatriz(wildcard ? [] : perms, wildcard);
+  }
+
+  (document.getElementById('editor-wildcard') as HTMLInputElement).addEventListener('change', actualizarPermisoDesdeUI);
+  (document.getElementById('editor-color') as HTMLSelectElement).addEventListener('change', () => {
+    const color = (document.getElementById('editor-color') as HTMLSelectElement).value;
+    const badge = document.getElementById('editor-badge')!;
+    badge.className = `badge text-[10px] border ${colorBadge[color] ?? colorBadge.carbon}`;
+  });
+
+  document.getElementById('btn-all-permisos')!.addEventListener('click', () => {
+    const todos: string[] = [];
+    for (const g of catalogo) for (const a of g.acciones) todos.push(`${g.slug}.${a}`);
+    (document.getElementById('editor-wildcard') as HTMLInputElement).checked = false;
+    renderMatriz(todos, false);
+  });
+  document.getElementById('btn-none-permisos')!.addEventListener('click', () => {
+    (document.getElementById('editor-wildcard') as HTMLInputElement).checked = false;
+    renderMatriz([], false);
+  });
+
+  document.getElementById('btn-guardar-rol')!.addEventListener('click', async () => {
+    const estado = document.getElementById('estado-editor')!;
+    estado.className = 'hidden';
+    const nombre = (document.getElementById('editor-nombre') as HTMLInputElement).value.trim();
+    const slug = (document.getElementById('editor-slug') as HTMLInputElement).value.trim();
+    const descripcion = (document.getElementById('editor-desc') as HTMLInputElement).value.trim();
+    const color = (document.getElementById('editor-color') as HTMLSelectElement).value;
+    const permisos = obtenerPermisosActuales();
+
+    if (!nombre || !slug) {
+      estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
+      estado.textContent = '✗ Nombre y slug obligatorios';
+      return;
+    }
+
+    if (modoDemo) {
+      estado.className = 'rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 p-3 text-sm';
+      estado.textContent = '⚠ Modo demo — no persiste. Configura DATABASE_URL.';
+      return;
+    }
+
+    try {
+      if (!rolSeleccionadoId) {
+        // Crear
+        const res = await fetch('/api/roles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, nombre, descripcion: descripcion || null, color, permisos }),
+        });
+        if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Error'); }
+        const creado = await res.json();
+        roles.push(creado);
+        rolSeleccionadoId = creado.id;
+      } else {
+        const res = await fetch(`/api/roles/${rolSeleccionadoId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre, descripcion: descripcion || null, color, permisos }),
+        });
+        if (!res.ok) throw new Error();
+        const act = await res.json();
+        roles = roles.map((r) => r.id === act.id ? act : r);
+      }
+      estado.className = 'rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 text-sm';
+      estado.textContent = '✓ Guardado';
+      renderLista();
+      const rol = roles.find((r) => r.id === rolSeleccionadoId);
+      if (rol) abrirEditor(rol);
+    } catch (err: any) {
+      estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
+      estado.textContent = '✗ ' + (err.message || 'Error');
+    }
+  });
+
+  document.getElementById('btn-borrar-rol')!.addEventListener('click', async () => {
+    if (!rolSeleccionadoId) return;
+    if (!confirm('¿Eliminar rol? Los usuarios asignados pasarán a "viewer".')) return;
+    if (modoDemo) return;
+    const res = await fetch(`/api/roles/${rolSeleccionadoId}`, { method: 'DELETE' });
+    if (!res.ok) { alert('Error al eliminar'); return; }
+    roles = roles.filter((r) => r.id !== rolSeleccionadoId);
+    rolSeleccionadoId = null;
+    editorCont.classList.add('hidden');
+    editorVacio.classList.remove('hidden');
+    renderLista();
+  });
+
+  document.getElementById('btn-nuevo-rol')?.addEventListener('click', () => seleccionar('nuevo'));
+
+  renderLista();
+</script>

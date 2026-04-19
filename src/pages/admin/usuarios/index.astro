@@ -2,19 +2,32 @@
 import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
 import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
 import { db, esquema } from '../../../lib/db/cliente';
-import { desc } from 'drizzle-orm';
+import { asc, desc } from 'drizzle-orm';
+import { asegurarRolesSistema } from '../../../lib/utilidades/permisos';
 
 export const prerender = false;
 
 let filas: any[] = [];
+let rolesDisponibles: { slug: string; nombre: string; color: string }[] = [];
 let error: string | null = null;
 try {
   if (import.meta.env.DATABASE_URL) {
+    await asegurarRolesSistema();
     filas = await db.select().from(esquema.usuarios).orderBy(desc(esquema.usuarios.creadoEn));
+    rolesDisponibles = await db
+      .select({ slug: esquema.roles.slug, nombre: esquema.roles.nombre, color: esquema.roles.color })
+      .from(esquema.roles)
+      .orderBy(asc(esquema.roles.orden), asc(esquema.roles.nombre));
   } else {
     error = 'Sin DATABASE_URL — ejemplo';
     filas = [
       { id: 'u1', nombre: 'Admin Demo', email: 'admin@kaladim.com', rol: 'admin', activo: true, avatarUrl: null, creadoEn: new Date() },
+    ];
+    rolesDisponibles = [
+      { slug: 'admin', nombre: 'Administrador', color: 'violeta' },
+      { slug: 'editor', nombre: 'Editor', color: 'emerald' },
+      { slug: 'viewer', nombre: 'Lector', color: 'cyan' },
+      { slug: 'cliente', nombre: 'Cliente', color: 'carbon' },
     ];
   }
 } catch (e) { error = e instanceof Error ? e.message : 'Error'; }
@@ -31,36 +44,15 @@ const puedeGestionar = rolUsuarioActual === 'admin';
 
   {error && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {error}</div>}
 
-  <!-- ═══ Leyenda roles ═══ -->
-  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-    <div class="tarjeta p-4">
-      <div class="flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-violeta-500"></span>
-        <span class="text-sm font-semibold text-white">Admin</span>
-      </div>
-      <p class="text-xs text-carbon-400 mt-1">Acceso total. Gestiona usuarios, roles, todo.</p>
-    </div>
-    <div class="tarjeta p-4">
-      <div class="flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-        <span class="text-sm font-semibold text-white">Editor</span>
-      </div>
-      <p class="text-xs text-carbon-400 mt-1">Crea y edita contenido. No gestiona usuarios.</p>
-    </div>
-    <div class="tarjeta p-4">
-      <div class="flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
-        <span class="text-sm font-semibold text-white">Viewer</span>
-      </div>
-      <p class="text-xs text-carbon-400 mt-1">Solo consulta. Sin permisos de edición.</p>
-    </div>
-    <div class="tarjeta p-4">
-      <div class="flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-carbon-500"></span>
-        <span class="text-sm font-semibold text-white">Cliente</span>
-      </div>
-      <p class="text-xs text-carbon-400 mt-1">Bloqueado del panel. Sólo web pública.</p>
-    </div>
+  <!-- ═══ Acceso rápido roles ═══ -->
+  <div class="mb-6 flex items-center justify-between gap-3 flex-wrap">
+    <p class="text-sm text-carbon-400">
+      Roles disponibles: <span class="text-white font-medium">{rolesDisponibles.length}</span>
+    </p>
+    <a href="/admin/roles" class="btn-secundario text-sm">
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 3v7c0 5-4 9-8 10-4-1-8-5-8-10V5l8-3z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Gestionar roles y permisos
+    </a>
   </div>
 
   {puedeGestionar && (
@@ -79,9 +71,9 @@ const puedeGestionar = rolUsuarioActual === 'admin';
         <div>
           <label class="etiqueta" for="inv-rol">Rol</label>
           <select id="inv-rol" name="rol" class="input">
-            <option value="viewer" selected>Viewer</option>
-            <option value="editor">Editor</option>
-            <option value="admin">Admin</option>
+            {rolesDisponibles.map((r) => (
+              <option value={r.slug} selected={r.slug === 'viewer'}>{r.nombre}</option>
+            ))}
           </select>
         </div>
         <div class="sm:self-end">
@@ -94,35 +86,63 @@ const puedeGestionar = rolUsuarioActual === 'admin';
 
   <!-- ═══ Listado ═══ -->
   <div class="tarjeta overflow-hidden">
-    <div class="p-3 sm:p-4 border-b border-carbon-800 flex items-center gap-2">
+    <div class="p-3 sm:p-4 border-b border-carbon-800 flex flex-col sm:flex-row sm:items-center gap-2">
       <div class="relative flex-1 sm:max-w-xs">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-carbon-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
         <input id="busqueda-usuarios" type="text" placeholder="Buscar por nombre o email..." class="input pl-9 py-2 text-sm" />
       </div>
-      <span class="text-xs text-carbon-500 ml-auto" id="contador-usuarios">{filas.length}</span>
+      <select id="filtro-rol" class="input py-2 text-sm sm:max-w-[200px]">
+        <option value="">Todos los roles</option>
+        {rolesDisponibles.map((r) => (
+          <option value={r.slug}>{r.nombre}</option>
+        ))}
+      </select>
+      <label class="flex items-center gap-2 text-xs text-carbon-400 whitespace-nowrap px-2">
+        <input type="checkbox" id="filtro-inactivos" class="accent-violeta-600" />
+        Mostrar inactivos
+      </label>
+      <span class="text-xs text-carbon-500 sm:ml-auto" id="contador-usuarios">{filas.length}</span>
     </div>
 
     <div id="lista-usuarios" class="divide-y divide-carbon-800"></div>
   </div>
 </LayoutAdmin>
 
-<script id="datos-usuarios" type="application/json" set:html={JSON.stringify({ usuarios: filas, puedeGestionar })}></script>
+<script id="datos-usuarios" type="application/json" set:html={JSON.stringify({ usuarios: filas, puedeGestionar, roles: rolesDisponibles })}></script>
 
 <script>
   const datos = JSON.parse(document.getElementById('datos-usuarios')!.textContent!);
   let usuarios: any[] = datos.usuarios;
   const puedeGestionar: boolean = datos.puedeGestionar;
+  const rolesDisponibles: { slug: string; nombre: string; color: string }[] = datos.roles ?? [];
 
-  const rolColor: Record<string, string> = {
-    admin: 'bg-violeta-500/15 text-violeta-300 border-violeta-500/30',
-    editor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    viewer: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
-    cliente: 'bg-carbon-800 text-carbon-400 border-carbon-700',
+  const mapaColor: Record<string, string> = {
+    violeta: 'bg-violeta-500/15 text-violeta-300 border-violeta-500/30',
+    emerald: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    cyan: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    amber: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    red: 'bg-red-500/15 text-red-300 border-red-500/30',
+    rosa: 'bg-pink-500/15 text-pink-300 border-pink-500/30',
+    azul: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+    naranja: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+    carbon: 'bg-carbon-800 text-carbon-400 border-carbon-700',
   };
+  const rolInfo: Record<string, { nombre: string; color: string }> = {};
+  rolesDisponibles.forEach((r) => { rolInfo[r.slug] = { nombre: r.nombre, color: r.color }; });
+
+  function colorRol(slug: string): string {
+    const info = rolInfo[slug];
+    return mapaColor[info?.color ?? 'carbon'];
+  }
+  function nombreRol(slug: string): string {
+    return rolInfo[slug]?.nombre ?? slug;
+  }
 
   const contador = document.getElementById('contador-usuarios')!;
   const lista = document.getElementById('lista-usuarios')!;
   const busqueda = document.getElementById('busqueda-usuarios') as HTMLInputElement;
+  const filtroRol = document.getElementById('filtro-rol') as HTMLSelectElement;
+  const filtroInactivos = document.getElementById('filtro-inactivos') as HTMLInputElement;
 
   function escHtml(s: string): string {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -130,15 +150,25 @@ const puedeGestionar = rolUsuarioActual === 'admin';
 
   function pintar() {
     const q = busqueda.value.toLowerCase();
-    const filtrados = usuarios.filter((u) =>
-      (u.nombre + ' ' + u.email).toLowerCase().includes(q),
-    );
+    const rol = filtroRol.value;
+    const verInactivos = filtroInactivos.checked;
+    const filtrados = usuarios.filter((u) => {
+      const coincideBusqueda = (u.nombre + ' ' + u.email).toLowerCase().includes(q);
+      const coincideRol = !rol || u.rol === rol;
+      const coincideActivo = verInactivos || u.activo !== false;
+      return coincideBusqueda && coincideRol && coincideActivo;
+    });
     contador.textContent = `${filtrados.length} de ${usuarios.length}`;
 
     if (filtrados.length === 0) {
       lista.innerHTML = `<div class="p-8 text-center text-sm text-carbon-500">Sin resultados</div>`;
       return;
     }
+
+    const opcionesRol = rolesDisponibles.map((r) =>
+      `<option value="${r.slug}">${escHtml(r.nombre)}</option>`
+    ).join('');
+
     lista.innerHTML = filtrados.map((u) => {
       const inicial = (u.nombre?.[0] ?? u.email[0] ?? '?').toUpperCase();
       const avatar = u.avatarUrl
@@ -146,6 +176,9 @@ const puedeGestionar = rolUsuarioActual === 'admin';
         : `<div class="h-10 w-10 rounded-full bg-gradient-to-br from-violeta-500 to-violeta-700 grid place-items-center text-sm font-semibold text-white">${inicial}</div>`;
       const ultimo = u.ultimoAcceso ? new Date(u.ultimoAcceso).toLocaleDateString('es-ES') : 'Nunca';
       const activo = u.activo !== false;
+      const opcionesRenderizadas = rolesDisponibles.map((r) =>
+        `<option value="${r.slug}" ${u.rol === r.slug ? 'selected' : ''}>${escHtml(r.nombre)}</option>`
+      ).join('');
       return `
         <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 hover:bg-carbon-900/40 transition" data-id="${u.id}">
           <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -153,7 +186,7 @@ const puedeGestionar = rolUsuarioActual === 'admin';
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-medium text-white truncate">${escHtml(u.nombre)}</span>
-                <span class="badge ${rolColor[u.rol] ?? 'border border-carbon-700'} text-[10px]">${u.rol}</span>
+                <span class="badge ${colorRol(u.rol)} text-[10px]">${escHtml(nombreRol(u.rol))}</span>
                 ${!activo ? '<span class="text-[10px] text-red-400 font-mono">inactivo</span>' : ''}
               </div>
               <div class="text-xs text-carbon-400 truncate">${escHtml(u.email)}</div>
@@ -163,7 +196,7 @@ const puedeGestionar = rolUsuarioActual === 'admin';
           ${puedeGestionar ? `
             <div class="flex items-center gap-2 shrink-0">
               <select data-sel-rol="${u.id}" class="input py-1.5 text-xs" ${!activo ? 'disabled' : ''}>
-                ${['admin','editor','viewer','cliente'].map((r) => `<option value="${r}" ${u.rol === r ? 'selected' : ''}>${r}</option>`).join('')}
+                ${opcionesRenderizadas}
               </select>
               <button data-toggle-activo="${u.id}" class="p-2 rounded hover:bg-carbon-800 text-carbon-400 hover:text-white" title="${activo ? 'Desactivar' : 'Activar'}">
                 ${activo
@@ -248,5 +281,7 @@ const puedeGestionar = rolUsuarioActual === 'admin';
   });
 
   busqueda.addEventListener('input', pintar);
+  filtroRol.addEventListener('change', pintar);
+  filtroInactivos.addEventListener('change', pintar);
   pintar();
 </script>

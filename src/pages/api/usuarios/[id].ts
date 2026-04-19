@@ -9,7 +9,7 @@ import { requerirAdminEstricto } from '../../../lib/utilidades/autorizacion';
 export const prerender = false;
 
 const esquemaCambio = z.object({
-  rol: z.enum(['admin', 'editor', 'viewer', 'cliente']).optional(),
+  rol: z.string().min(2).max(40).optional(),
   activo: z.boolean().optional(),
   nombre: z.string().min(2).max(120).optional(),
 });

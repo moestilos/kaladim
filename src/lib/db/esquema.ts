@@ -18,7 +18,9 @@ import { relations } from 'drizzle-orm';
 
 // ─── ENUMS ──────────────────────────────────────────────────────────────
 
-export const rolUsuarioEnum = pgEnum('rol_usuario', ['admin', 'editor', 'viewer', 'cliente']);
+// Nota: antes era pgEnum; ahora varchar para permitir roles custom desde UI.
+// Los roles sistema se seedan en la tabla `roles` al primer arranque.
+// Valor almacena el slug del rol (FK lógica → roles.slug).
 
 export const estadoProyectoEnum = pgEnum('estado_proyecto', [
   'borrador',
@@ -58,7 +60,7 @@ export const usuarios = pgTable(
     avatarUrl: text('avatar_url'),
     telefono: varchar('telefono', { length: 40 }),
     bio: text('bio'),
-    rol: rolUsuarioEnum('rol').notNull().default('viewer'),
+    rol: varchar('rol', { length: 40 }).notNull().default('viewer'),
     activo: boolean('activo').notNull().default(true),
     googleId: varchar('google_id', { length: 120 }).unique(),
     ultimoAcceso: timestamp('ultimo_acceso', { withTimezone: true }),
@@ -67,6 +69,27 @@ export const usuarios = pgTable(
   },
   (t) => ({
     emailIdx: index('usuarios_email_idx').on(t.email),
+  }),
+);
+
+// ─── ROLES (catálogo dinámico con permisos) ─────────────────────────────
+
+export const roles = pgTable(
+  'roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: varchar('slug', { length: 40 }).notNull().unique(),          // identificador estable (admin, editor...)
+    nombre: varchar('nombre', { length: 80 }).notNull(),               // nombre mostrado
+    descripcion: varchar('descripcion', { length: 255 }),
+    color: varchar('color', { length: 20 }).notNull().default('carbon'),
+    permisos: text('permisos').notNull().default('[]'),                // JSON array de strings
+    esSistema: boolean('es_sistema').notNull().default(false),         // los 4 base no se borran
+    orden: integer('orden').notNull().default(0),
+    creadoEn: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
+    actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    slugIdx: index('roles_slug_idx').on(t.slug),
   }),
 );
 
@@ -371,6 +394,8 @@ export const automatizacionesRelaciones = relations(automatizaciones, ({ one }) 
 
 export type Usuario = typeof usuarios.$inferSelect;
 export type NuevoUsuario = typeof usuarios.$inferInsert;
+export type Rol = typeof roles.$inferSelect;
+export type NuevoRol = typeof roles.$inferInsert;
 export type Cliente = typeof clientes.$inferSelect;
 export type NuevoCliente = typeof clientes.$inferInsert;
 export type Proyecto = typeof proyectos.$inferSelect;

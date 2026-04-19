@@ -11,7 +11,7 @@ export const prerender = false;
 const esquemaInvitar = z.object({
   email: z.string().email().max(255),
   nombre: z.string().min(2).max(120),
-  rol: z.enum(['admin', 'editor', 'viewer', 'cliente']).default('viewer'),
+  rol: z.string().min(2).max(40).default('viewer'),
 });
 
 export const GET: APIRoute = async ({ request }) => {
