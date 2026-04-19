@@ -71,19 +71,23 @@ const puedeGestionar = rolUsuarioActual === 'admin';
               <span id="editor-badge" class="badge badge-info text-[10px]"></span>
               <span id="editor-sistema" class="text-[10px] font-mono text-amber-300 hidden">sistema · no borrable</span>
             </div>
+            <label class="etiqueta mt-2">Nombre del rol</label>
             <input
               id="editor-nombre"
               type="text"
-              class="mt-2 w-full bg-transparent border-0 text-2xl font-display font-bold text-white focus:outline-none focus:ring-0 px-0"
+              class="input text-lg font-display font-semibold text-white"
+              placeholder="Ej: Diseñador"
               maxlength="80"
             />
+            <label class="etiqueta mt-3">Identificador (slug)</label>
             <input
               id="editor-slug"
               type="text"
-              class="input text-xs font-mono mt-2 sm:max-w-xs"
+              class="input text-xs font-mono sm:max-w-xs"
               placeholder="slug-identificador"
               pattern="[a-z0-9_-]+"
             />
+            <p class="text-[10px] text-carbon-500 mt-1">Los roles sistema tienen el slug bloqueado (referencia estable).</p>
           </div>
           <div class="flex gap-2 shrink-0">
             <button id="btn-borrar-rol" class="btn-fantasma text-sm text-red-400 hover:text-red-300 hidden">Eliminar</button>
