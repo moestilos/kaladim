@@ -20,11 +20,12 @@ try {
         slug: esquema.roles.slug,
         nombre: esquema.roles.nombre,
         color: esquema.roles.color,
+        descripcion: esquema.roles.descripcion,
         temporal: esquema.roles.temporal,
         duracionDiasPorDefecto: esquema.roles.duracionDiasPorDefecto,
       })
       .from(esquema.roles)
-      .orderBy(asc(esquema.roles.orden), asc(esquema.roles.nombre));
+      .orderBy(asc(esquema.roles.orden), asc(esquema.roles.nombre)) as any;
 
     // Todas las asignaciones no expiradas
     const { and, gt, isNull, or } = await import('drizzle-orm');
@@ -123,6 +124,59 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     </div>
 
     <div id="lista-usuarios" class="divide-y divide-carbon-800"></div>
+  </div>
+
+  <!-- ═══ MODAL ASIGNAR ROL ═══ -->
+  <div id="modal-asignar-rol" class="fixed inset-0 z-[100] hidden items-start justify-center pt-[6vh] px-4" role="dialog" aria-modal="true">
+    <div id="modal-asignar-fondo" class="absolute inset-0 bg-carbon-950/70 backdrop-blur-md"></div>
+    <div class="relative w-full max-w-xl tarjeta-glass p-5 sm:p-6 animate-modal-in max-h-[88vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="min-w-0">
+          <h3 class="text-lg font-display font-semibold text-white">Asignar rol</h3>
+          <p class="text-xs text-carbon-400 mt-0.5" id="modal-asignar-usuario"></p>
+        </div>
+        <button type="button" id="modal-asignar-cerrar" class="text-carbon-400 hover:text-white shrink-0">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <!-- Buscador -->
+      <div class="relative mb-3">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-carbon-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+        <input id="modal-asignar-busqueda" type="text" placeholder="Buscar rol..." class="input pl-9 py-2 text-sm" />
+      </div>
+
+      <!-- Lista roles -->
+      <div id="modal-asignar-lista" class="space-y-2 max-h-[45vh] overflow-y-auto pr-1"></div>
+
+      <!-- Configuración rol seleccionado -->
+      <div id="modal-asignar-config" class="hidden mt-4 p-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.05]">
+        <div class="flex items-center gap-2 mb-2">
+          <svg class="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></svg>
+          <span class="text-sm font-medium text-white">Acceso temporal</span>
+        </div>
+        <p class="text-xs text-carbon-400 mb-3">El acceso de <span id="modal-asignar-rol-nombre" class="text-white font-medium"></span> expira automáticamente tras esta duración.</p>
+
+        <label class="etiqueta text-xs">Duración en días</label>
+        <div class="flex items-center gap-3">
+          <input id="modal-asignar-dias" type="range" min="1" max="90" value="7" class="flex-1 accent-amber-500" />
+          <input id="modal-asignar-dias-num" type="number" min="1" max="365" value="7" class="input py-1.5 text-sm w-20 text-center" />
+        </div>
+        <div class="mt-2 flex gap-1.5 flex-wrap">
+          <button type="button" class="preset-dias text-[11px] px-2 py-1 rounded bg-carbon-800 hover:bg-carbon-700 text-carbon-300" data-d="1">1 día</button>
+          <button type="button" class="preset-dias text-[11px] px-2 py-1 rounded bg-carbon-800 hover:bg-carbon-700 text-carbon-300" data-d="3">3 días</button>
+          <button type="button" class="preset-dias text-[11px] px-2 py-1 rounded bg-carbon-800 hover:bg-carbon-700 text-carbon-300" data-d="7">1 semana</button>
+          <button type="button" class="preset-dias text-[11px] px-2 py-1 rounded bg-carbon-800 hover:bg-carbon-700 text-carbon-300" data-d="14">2 semanas</button>
+          <button type="button" class="preset-dias text-[11px] px-2 py-1 rounded bg-carbon-800 hover:bg-carbon-700 text-carbon-300" data-d="30">1 mes</button>
+        </div>
+        <p class="text-[10px] text-carbon-500 mt-2">Expirará el <span id="modal-asignar-fecha" class="text-carbon-300 font-mono"></span></p>
+      </div>
+
+      <div class="flex gap-2 justify-end mt-5 pt-4 border-t border-carbon-800">
+        <button type="button" id="modal-asignar-cancelar" class="btn-fantasma text-sm">Cancelar</button>
+        <button type="button" id="modal-asignar-confirmar" class="btn-primario text-sm" disabled>Asignar rol</button>
+      </div>
+    </div>
   </div>
 </LayoutAdmin>
 
@@ -306,43 +360,172 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     });
   }
 
-  async function abrirDialogoAnadirRol(uid: string) {
+  // ── Modal asignar rol ──
+  const modal = document.getElementById('modal-asignar-rol')!;
+  const modalLista = document.getElementById('modal-asignar-lista')!;
+  const modalBusqueda = document.getElementById('modal-asignar-busqueda') as HTMLInputElement;
+  const modalConfig = document.getElementById('modal-asignar-config')!;
+  const modalConfirmar = document.getElementById('modal-asignar-confirmar') as HTMLButtonElement;
+  const inpDias = document.getElementById('modal-asignar-dias') as HTMLInputElement;
+  const inpDiasNum = document.getElementById('modal-asignar-dias-num') as HTMLInputElement;
+
+  let modalEstado: { uid: string; rolesInvitables: typeof rolesDisponibles; slugElegido: string | null } | null = null;
+
+  function cerrarModal() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    modalEstado = null;
+  }
+
+  function abrirDialogoAnadirRol(uid: string) {
     const rolesExistentes = new Set([
       usuarios.find((u) => u.id === uid)?.rol,
       ...asignaciones.filter((a) => a.usuarioId === uid).map((a) => a.rolSlug),
     ].filter(Boolean));
 
     const rolesInvitables = rolesDisponibles.filter((r) => !rolesExistentes.has(r.slug));
-    if (rolesInvitables.length === 0) { alert('Este usuario ya tiene todos los roles disponibles.'); return; }
-
-    const opciones = rolesInvitables.map((r, i) => `${i + 1}. ${r.nombre}${r.temporal ? ' ⏱ (temporal ' + (r.duracionDiasPorDefecto ?? 7) + 'd)' : ''}`).join('\n');
-    const elegido = prompt(`Asignar rol adicional:\n\n${opciones}\n\nEscribe el número:`);
-    if (!elegido) return;
-    const idx = Number(elegido) - 1;
-    const rol = rolesInvitables[idx];
-    if (!rol) { alert('Opción inválida'); return; }
-
-    let duracionDias: number | undefined;
-    if (rol.temporal) {
-      const def = rol.duracionDiasPorDefecto ?? 7;
-      const d = prompt(`Duración del acceso en días (default ${def}):`, String(def));
-      if (!d) return;
-      duracionDias = Math.max(1, Number(d));
+    if (rolesInvitables.length === 0) {
+      alert('Este usuario ya tiene todos los roles disponibles.');
+      return;
     }
 
+    const usuario = usuarios.find((u) => u.id === uid);
+    modalEstado = { uid, rolesInvitables, slugElegido: null };
+    document.getElementById('modal-asignar-usuario')!.textContent = `${usuario?.nombre ?? ''} · ${usuario?.email ?? ''}`;
+    modalBusqueda.value = '';
+    modalConfig.classList.add('hidden');
+    modalConfirmar.disabled = true;
+    modalConfirmar.textContent = 'Asignar rol';
+    renderListaModal('');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => modalBusqueda.focus(), 40);
+  }
+
+  function renderListaModal(filtro: string) {
+    if (!modalEstado) return;
+    const q = filtro.toLowerCase();
+    const filtrados = modalEstado.rolesInvitables.filter((r) =>
+      (r.nombre + ' ' + r.slug).toLowerCase().includes(q),
+    );
+
+    if (filtrados.length === 0) {
+      modalLista.innerHTML = `<div class="p-6 text-center text-sm text-carbon-500">Sin roles coincidentes</div>`;
+      return;
+    }
+
+    modalLista.innerHTML = filtrados.map((r) => {
+      const seleccionado = modalEstado!.slugElegido === r.slug;
+      const dot = r.color === 'violeta' ? 'bg-violeta-500' :
+                  r.color === 'emerald' ? 'bg-emerald-500' :
+                  r.color === 'cyan' ? 'bg-cyan-500' :
+                  r.color === 'amber' ? 'bg-amber-500' :
+                  r.color === 'red' ? 'bg-red-500' :
+                  r.color === 'rosa' ? 'bg-pink-500' :
+                  r.color === 'azul' ? 'bg-blue-500' :
+                  r.color === 'naranja' ? 'bg-orange-500' : 'bg-carbon-500';
+      return `
+        <button type="button" data-slug="${r.slug}"
+          class="card-rol w-full text-left p-3 rounded-lg border transition-all ${seleccionado
+            ? 'border-violeta-500/60 bg-violeta-500/10 shadow-lg shadow-violeta-600/10'
+            : 'border-carbon-800 bg-carbon-950/40 hover:border-carbon-700 hover:bg-carbon-900/60'}">
+          <div class="flex items-center gap-3">
+            <span class="h-2.5 w-2.5 rounded-full ${dot} shrink-0"></span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-white">${escHtml(r.nombre)}</span>
+                ${r.temporal ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">⏱ temporal</span>` : ''}
+                <span class="text-[10px] font-mono text-carbon-500">${escHtml(r.slug)}</span>
+              </div>
+              ${(r as any).descripcion ? `<div class="text-xs text-carbon-400 mt-0.5">${escHtml((r as any).descripcion)}</div>` : ''}
+            </div>
+            ${seleccionado ? `<svg class="h-5 w-5 text-violeta-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ''}
+          </div>
+        </button>
+      `;
+    }).join('');
+
+    modalLista.querySelectorAll<HTMLButtonElement>('.card-rol').forEach((b) => {
+      b.addEventListener('click', () => seleccionarRolModal(b.dataset.slug!));
+    });
+  }
+
+  function seleccionarRolModal(slug: string) {
+    if (!modalEstado) return;
+    modalEstado.slugElegido = slug;
+    const rol = modalEstado.rolesInvitables.find((r) => r.slug === slug)!;
+    modalConfirmar.disabled = false;
+    modalConfirmar.textContent = `Asignar "${rol.nombre}"`;
+
+    if (rol.temporal) {
+      modalConfig.classList.remove('hidden');
+      const def = rol.duracionDiasPorDefecto ?? 7;
+      inpDias.value = String(def);
+      inpDiasNum.value = String(def);
+      actualizarFechaExpiracion();
+      document.getElementById('modal-asignar-rol-nombre')!.textContent = rol.nombre;
+    } else {
+      modalConfig.classList.add('hidden');
+    }
+
+    renderListaModal(modalBusqueda.value);
+  }
+
+  function actualizarFechaExpiracion() {
+    const dias = Math.max(1, Number(inpDiasNum.value) || 7);
+    const fecha = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+    document.getElementById('modal-asignar-fecha')!.textContent = fecha.toLocaleDateString('es-ES', {
+      day: '2-digit', month: 'long', year: 'numeric',
+    });
+  }
+
+  modalBusqueda.addEventListener('input', () => renderListaModal(modalBusqueda.value));
+  inpDias.addEventListener('input', () => { inpDiasNum.value = inpDias.value; actualizarFechaExpiracion(); });
+  inpDiasNum.addEventListener('input', () => {
+    inpDias.value = String(Math.min(90, Math.max(1, Number(inpDiasNum.value) || 1)));
+    actualizarFechaExpiracion();
+  });
+  document.querySelectorAll<HTMLButtonElement>('.preset-dias').forEach((b) => {
+    b.addEventListener('click', () => {
+      const d = b.dataset.d!;
+      inpDias.value = d;
+      inpDiasNum.value = d;
+      actualizarFechaExpiracion();
+    });
+  });
+
+  document.getElementById('modal-asignar-cerrar')!.addEventListener('click', cerrarModal);
+  document.getElementById('modal-asignar-cancelar')!.addEventListener('click', cerrarModal);
+  document.getElementById('modal-asignar-fondo')!.addEventListener('click', cerrarModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) cerrarModal();
+  });
+
+  modalConfirmar.addEventListener('click', async () => {
+    if (!modalEstado || !modalEstado.slugElegido) return;
+    const rol = modalEstado.rolesInvitables.find((r) => r.slug === modalEstado!.slugElegido)!;
+    const payload: any = { rolSlug: rol.slug };
+    if (rol.temporal) payload.duracionDias = Math.max(1, Number(inpDiasNum.value) || 7);
+
+    modalConfirmar.disabled = true;
+    modalConfirmar.textContent = 'Asignando...';
     try {
-      const res = await fetch(`/api/usuarios/${uid}/roles`, {
+      const res = await fetch(`/api/usuarios/${modalEstado.uid}/roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rolSlug: rol.slug, duracionDias }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
       const creado = await res.json();
-      // Añadir a asignaciones local
-      asignaciones.push({ usuarioId: uid, rolSlug: rol.slug, expiraEn: creado.expiraEn });
+      asignaciones.push({ usuarioId: modalEstado.uid, rolSlug: rol.slug, expiraEn: creado.expiraEn });
+      cerrarModal();
       pintar();
-    } catch { alert('Error al asignar rol'); }
-  }
+    } catch {
+      alert('Error al asignar rol');
+      modalConfirmar.disabled = false;
+      modalConfirmar.textContent = 'Asignar rol';
+    }
+  });
 
   async function actualizar(id: string, datos: any) {
     try {
