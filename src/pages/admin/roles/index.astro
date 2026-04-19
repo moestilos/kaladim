@@ -87,7 +87,7 @@ const puedeGestionar = rolUsuarioActual === 'admin';
               placeholder="slug-identificador"
               pattern="[a-z0-9_-]+"
             />
-            <p class="text-[10px] text-carbon-500 mt-1">El slug es el identificador técnico. Cambiarlo reasigna automáticamente a todos los usuarios con este rol.</p>
+            <p class="text-[10px] text-carbon-500 mt-1">Solo minúsculas, números, guiones y guion bajo. Se genera automático desde el nombre.</p>
           </div>
           <div class="flex gap-2 shrink-0">
             <button id="btn-borrar-rol" class="btn-fantasma text-sm text-red-400 hover:text-red-300 hidden">Eliminar</button>
@@ -356,6 +356,30 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     document.getElementById('editor-duracion-box')!.classList.toggle('hidden', !check);
   });
 
+  // Helper slugify
+  function slugify(s: string): string {
+    return s
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
+      .replace(/[^a-z0-9]+/g, '-')                       // no alfanum → guión
+      .replace(/^-|-$/g, '')                             // trim guiones
+      .slice(0, 40);
+  }
+
+  // Auto-genera slug desde nombre si el slug está vacío o es nuevo rol
+  const inpNombreEl = document.getElementById('editor-nombre') as HTMLInputElement;
+  const inpSlugEl = document.getElementById('editor-slug') as HTMLInputElement;
+  inpNombreEl.addEventListener('input', () => {
+    // Solo auto-generar si es nuevo rol (sin id seleccionado) o slug está vacío
+    if (!rolSeleccionadoId || !inpSlugEl.value.trim()) {
+      inpSlugEl.value = slugify(inpNombreEl.value);
+    }
+  });
+  // Al salir del input slug, normalizarlo siempre
+  inpSlugEl.addEventListener('blur', () => {
+    inpSlugEl.value = slugify(inpSlugEl.value);
+  });
+
   (document.getElementById('editor-wildcard') as HTMLInputElement).addEventListener('change', actualizarPermisoDesdeUI);
   (document.getElementById('editor-color') as HTMLSelectElement).addEventListener('change', () => {
     const color = (document.getElementById('editor-color') as HTMLSelectElement).value;
@@ -398,14 +422,26 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     }
 
     try {
-      const payload = { slug, nombre, descripcion: descripcion || null, color, permisos, temporal, duracionDiasPorDefecto };
+      // Sanitiza slug antes de enviar (por si quedó algo raro)
+      const slugFinal = slug.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+      if (!slugFinal) {
+        estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
+        estado.textContent = '✗ Slug inválido. Usa solo letras, números, guiones.';
+        return;
+      }
+
+      const payload = { slug: slugFinal, nombre, descripcion: descripcion || null, color, permisos, temporal, duracionDiasPorDefecto };
       if (!rolSeleccionadoId) {
         const res = await fetch('/api/roles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Error'); }
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          const detalle = j.detalles?.[0]?.message ?? j.error ?? 'Error al crear';
+          throw new Error(detalle);
+        }
         const creado = await res.json();
         roles.push(creado);
         rolSeleccionadoId = creado.id;
@@ -425,7 +461,11 @@ const puedeGestionar = rolUsuarioActual === 'admin';
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Error'); }
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          const detalle = j.detalles?.[0]?.message ?? j.error ?? 'Error al guardar';
+          throw new Error(detalle);
+        }
         const act = await res.json();
         roles = roles.map((r) => r.id === act.id ? act : r);
       }
