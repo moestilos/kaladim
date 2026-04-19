@@ -245,7 +245,9 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     const verInactivos = filtroInactivos.checked;
     const filtrados = usuarios.filter((u) => {
       const coincideBusqueda = (u.nombre + ' ' + u.email).toLowerCase().includes(q);
-      const coincideRol = !rol || u.rol === rol;
+      // Rol: principal (u.rol) + todos los asignados en usuario_roles
+      const todosLosRoles = [u.rol, ...asignaciones.filter((a) => a.usuarioId === u.id).map((a) => a.rolSlug)].filter(Boolean);
+      const coincideRol = !rol || todosLosRoles.includes(rol);
       const coincideActivo = verInactivos || u.activo !== false;
       return coincideBusqueda && coincideRol && coincideActivo;
     });
