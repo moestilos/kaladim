@@ -78,18 +78,40 @@ export const roles = pgTable(
   'roles',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    slug: varchar('slug', { length: 40 }).notNull().unique(),          // identificador estable (admin, editor...)
-    nombre: varchar('nombre', { length: 80 }).notNull(),               // nombre mostrado
+    slug: varchar('slug', { length: 40 }).notNull().unique(),
+    nombre: varchar('nombre', { length: 80 }).notNull(),
     descripcion: varchar('descripcion', { length: 255 }),
     color: varchar('color', { length: 20 }).notNull().default('carbon'),
-    permisos: text('permisos').notNull().default('[]'),                // JSON array de strings
-    esSistema: boolean('es_sistema').notNull().default(false),         // los 4 base no se borran
+    permisos: text('permisos').notNull().default('[]'),
+    esSistema: boolean('es_sistema').notNull().default(false),
+    // Si true, al asignar a un usuario se pide duración → se guarda expira_en en usuario_roles
+    temporal: boolean('temporal').notNull().default(false),
+    // Duración por defecto en días cuando se asigna (solo si temporal=true)
+    duracionDiasPorDefecto: integer('duracion_dias_por_defecto').notNull().default(7),
     orden: integer('orden').notNull().default(0),
     creadoEn: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
     actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     slugIdx: index('roles_slug_idx').on(t.slug),
+  }),
+);
+
+// Relación N:M usuarios ↔ roles con expiración opcional.
+// Un usuario puede tener varios roles simultáneos. Los permisos se suman.
+export const usuarioRoles = pgTable(
+  'usuario_roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    usuarioId: uuid('usuario_id').notNull(),
+    rolSlug: varchar('rol_slug', { length: 40 }).notNull(),
+    expiraEn: timestamp('expira_en', { withTimezone: true }), // null = permanente
+    asignadoPor: varchar('asignado_por', { length: 255 }),    // email del admin
+    creadoEn: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    usuarioIdx: index('usuario_roles_usuario_idx').on(t.usuarioId),
+    rolIdx: index('usuario_roles_rol_idx').on(t.rolSlug),
   }),
 );
 
@@ -396,6 +418,8 @@ export type Usuario = typeof usuarios.$inferSelect;
 export type NuevoUsuario = typeof usuarios.$inferInsert;
 export type Rol = typeof roles.$inferSelect;
 export type NuevoRol = typeof roles.$inferInsert;
+export type UsuarioRol = typeof usuarioRoles.$inferSelect;
+export type NuevoUsuarioRol = typeof usuarioRoles.$inferInsert;
 export type Cliente = typeof clientes.$inferSelect;
 export type NuevoCliente = typeof clientes.$inferInsert;
 export type Proyecto = typeof proyectos.$inferSelect;

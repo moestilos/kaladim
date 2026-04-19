@@ -15,6 +15,8 @@ const esquemaActualizar = z.object({
     typeof v === 'string' ? v : JSON.stringify(v),
   ).optional(),
   orden: z.coerce.number().int().optional(),
+  temporal: z.coerce.boolean().optional(),
+  duracionDiasPorDefecto: z.coerce.number().int().positive().optional(),
 });
 
 export const PATCH: APIRoute = async ({ request, params }) => {

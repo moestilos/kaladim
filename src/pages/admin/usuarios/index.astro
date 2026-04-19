@@ -8,16 +8,34 @@ import { asegurarRolesSistema } from '../../../lib/utilidades/permisos';
 export const prerender = false;
 
 let filas: any[] = [];
-let rolesDisponibles: { slug: string; nombre: string; color: string }[] = [];
+let rolesDisponibles: { slug: string; nombre: string; color: string; temporal?: boolean; duracionDiasPorDefecto?: number }[] = [];
+let asignaciones: { usuarioId: string; rolSlug: string; expiraEn: Date | null }[] = [];
 let error: string | null = null;
 try {
   if (import.meta.env.DATABASE_URL) {
     await asegurarRolesSistema();
     filas = await db.select().from(esquema.usuarios).orderBy(desc(esquema.usuarios.creadoEn));
     rolesDisponibles = await db
-      .select({ slug: esquema.roles.slug, nombre: esquema.roles.nombre, color: esquema.roles.color })
+      .select({
+        slug: esquema.roles.slug,
+        nombre: esquema.roles.nombre,
+        color: esquema.roles.color,
+        temporal: esquema.roles.temporal,
+        duracionDiasPorDefecto: esquema.roles.duracionDiasPorDefecto,
+      })
       .from(esquema.roles)
       .orderBy(asc(esquema.roles.orden), asc(esquema.roles.nombre));
+
+    // Todas las asignaciones no expiradas
+    const { and, gt, isNull, or } = await import('drizzle-orm');
+    asignaciones = await db.select({
+      usuarioId: esquema.usuarioRoles.usuarioId,
+      rolSlug: esquema.usuarioRoles.rolSlug,
+      expiraEn: esquema.usuarioRoles.expiraEn,
+    }).from(esquema.usuarioRoles).where(or(
+      isNull(esquema.usuarioRoles.expiraEn),
+      gt(esquema.usuarioRoles.expiraEn, new Date()),
+    ));
   } else {
     error = 'Sin DATABASE_URL — ejemplo';
     filas = [
@@ -108,13 +126,32 @@ const puedeGestionar = rolUsuarioActual === 'admin';
   </div>
 </LayoutAdmin>
 
-<script id="datos-usuarios" type="application/json" set:html={JSON.stringify({ usuarios: filas, puedeGestionar, roles: rolesDisponibles })}></script>
+<script id="datos-usuarios" type="application/json" set:html={JSON.stringify({ usuarios: filas, puedeGestionar, roles: rolesDisponibles, asignaciones })}></script>
 
 <script>
   const datos = JSON.parse(document.getElementById('datos-usuarios')!.textContent!);
   let usuarios: any[] = datos.usuarios;
   const puedeGestionar: boolean = datos.puedeGestionar;
-  const rolesDisponibles: { slug: string; nombre: string; color: string }[] = datos.roles ?? [];
+  const rolesDisponibles: { slug: string; nombre: string; color: string; temporal?: boolean; duracionDiasPorDefecto?: number }[] = datos.roles ?? [];
+  // Mapa usuarioId → [{ rolSlug, expiraEn }]
+  let asignaciones: { usuarioId: string; rolSlug: string; expiraEn: string | null }[] = datos.asignaciones ?? [];
+
+  function rolesDeUsuario(uid: string): { slug: string; expiraEn: string | null }[] {
+    const slugs = new Set<string>();
+    const out: { slug: string; expiraEn: string | null }[] = [];
+    asignaciones.filter((a) => a.usuarioId === uid).forEach((a) => {
+      if (slugs.has(a.rolSlug)) return;
+      slugs.add(a.rolSlug);
+      out.push({ slug: a.rolSlug, expiraEn: a.expiraEn });
+    });
+    return out;
+  }
+
+  function diasRestantes(expiraEn: string | null): number | null {
+    if (!expiraEn) return null;
+    const ms = new Date(expiraEn).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+  }
 
   const mapaColor: Record<string, string> = {
     violeta: 'bg-violeta-500/15 text-violeta-300 border-violeta-500/30',
@@ -176,17 +213,31 @@ const puedeGestionar = rolUsuarioActual === 'admin';
         : `<div class="h-10 w-10 rounded-full bg-gradient-to-br from-violeta-500 to-violeta-700 grid place-items-center text-sm font-semibold text-white">${inicial}</div>`;
       const ultimo = u.ultimoAcceso ? new Date(u.ultimoAcceso).toLocaleDateString('es-ES') : 'Nunca';
       const activo = u.activo !== false;
-      const opcionesRenderizadas = rolesDisponibles.map((r) =>
-        `<option value="${r.slug}" ${u.rol === r.slug ? 'selected' : ''}>${escHtml(r.nombre)}</option>`
-      ).join('');
+
+      // Roles multi: el principal (u.rol) + extras de la tabla usuario_roles
+      const rolesExtra = rolesDeUsuario(u.id);
+      const slugsMostrados = new Set<string>();
+      const todos: { slug: string; expiraEn: string | null; principal: boolean }[] = [];
+      if (u.rol) { todos.push({ slug: u.rol, expiraEn: null, principal: true }); slugsMostrados.add(u.rol); }
+      rolesExtra.forEach((a) => { if (!slugsMostrados.has(a.slug)) { todos.push({ ...a, principal: false }); slugsMostrados.add(a.slug); } });
+
+      const badgesRoles = todos.map((a) => {
+        const dias = diasRestantes(a.expiraEn);
+        const expira = dias !== null ? ` <span class="ml-1 text-[9px] font-mono opacity-80">⏱${dias}d</span>` : '';
+        const btnX = puedeGestionar && !a.principal
+          ? `<button class="btn-quitar-rol ml-1 hover:text-red-400" data-uid="${u.id}" data-slug="${a.slug}" title="Quitar rol">×</button>`
+          : '';
+        return `<span class="badge ${colorRol(a.slug)} text-[10px] inline-flex items-center">${escHtml(nombreRol(a.slug))}${expira}${btnX}</span>`;
+      }).join('');
+
       return `
-        <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 hover:bg-carbon-900/40 transition" data-id="${u.id}">
+        <div class="flex flex-col lg:flex-row lg:items-center gap-3 p-4 hover:bg-carbon-900/40 transition" data-id="${u.id}">
           <div class="flex items-center gap-3 flex-1 min-w-0">
             ${avatar}
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-medium text-white truncate">${escHtml(u.nombre)}</span>
-                <span class="badge ${colorRol(u.rol)} text-[10px]">${escHtml(nombreRol(u.rol))}</span>
+                ${badgesRoles}
                 ${!activo ? '<span class="text-[10px] text-red-400 font-mono">inactivo</span>' : ''}
               </div>
               <div class="text-xs text-carbon-400 truncate">${escHtml(u.email)}</div>
@@ -194,9 +245,11 @@ const puedeGestionar = rolUsuarioActual === 'admin';
             </div>
           </div>
           ${puedeGestionar ? `
-            <div class="flex items-center gap-2 shrink-0">
-              <select data-sel-rol="${u.id}" class="input py-1.5 text-xs" ${!activo ? 'disabled' : ''}>
-                ${opcionesRenderizadas}
+            <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+              <button class="btn-anadir-rol btn-secundario text-xs py-1.5 px-2.5" data-uid="${u.id}" ${!activo ? 'disabled' : ''} title="Asignar rol adicional">+ rol</button>
+              <select data-sel-rol="${u.id}" class="input py-1.5 text-xs" ${!activo ? 'disabled' : ''} title="Rol principal">
+                <option disabled selected>rol principal...</option>
+                ${rolesDisponibles.map((r) => `<option value="${r.slug}" ${u.rol === r.slug ? 'selected' : ''}>${escHtml(r.nombre)}</option>`).join('')}
               </select>
               <button data-toggle-activo="${u.id}" class="p-2 rounded hover:bg-carbon-800 text-carbon-400 hover:text-white" title="${activo ? 'Desactivar' : 'Activar'}">
                 ${activo
@@ -233,6 +286,62 @@ const puedeGestionar = rolUsuarioActual === 'admin';
         await eliminar(id);
       });
     });
+    // Añadir rol
+    lista.querySelectorAll<HTMLButtonElement>('.btn-anadir-rol').forEach((b) => {
+      b.addEventListener('click', () => abrirDialogoAnadirRol(b.dataset.uid!));
+    });
+    // Quitar rol
+    lista.querySelectorAll<HTMLButtonElement>('.btn-quitar-rol').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const uid = b.dataset.uid!;
+        const slug = b.dataset.slug!;
+        if (!confirm(`¿Quitar rol '${nombreRol(slug)}' a este usuario?`)) return;
+        try {
+          const res = await fetch(`/api/usuarios/${uid}/roles?slug=${encodeURIComponent(slug)}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error();
+          asignaciones = asignaciones.filter((a) => !(a.usuarioId === uid && a.rolSlug === slug));
+          pintar();
+        } catch { alert('Error al quitar rol'); }
+      });
+    });
+  }
+
+  async function abrirDialogoAnadirRol(uid: string) {
+    const rolesExistentes = new Set([
+      usuarios.find((u) => u.id === uid)?.rol,
+      ...asignaciones.filter((a) => a.usuarioId === uid).map((a) => a.rolSlug),
+    ].filter(Boolean));
+
+    const rolesInvitables = rolesDisponibles.filter((r) => !rolesExistentes.has(r.slug));
+    if (rolesInvitables.length === 0) { alert('Este usuario ya tiene todos los roles disponibles.'); return; }
+
+    const opciones = rolesInvitables.map((r, i) => `${i + 1}. ${r.nombre}${r.temporal ? ' ⏱ (temporal ' + (r.duracionDiasPorDefecto ?? 7) + 'd)' : ''}`).join('\n');
+    const elegido = prompt(`Asignar rol adicional:\n\n${opciones}\n\nEscribe el número:`);
+    if (!elegido) return;
+    const idx = Number(elegido) - 1;
+    const rol = rolesInvitables[idx];
+    if (!rol) { alert('Opción inválida'); return; }
+
+    let duracionDias: number | undefined;
+    if (rol.temporal) {
+      const def = rol.duracionDiasPorDefecto ?? 7;
+      const d = prompt(`Duración del acceso en días (default ${def}):`, String(def));
+      if (!d) return;
+      duracionDias = Math.max(1, Number(d));
+    }
+
+    try {
+      const res = await fetch(`/api/usuarios/${uid}/roles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rolSlug: rol.slug, duracionDias }),
+      });
+      if (!res.ok) throw new Error();
+      const creado = await res.json();
+      // Añadir a asignaciones local
+      asignaciones.push({ usuarioId: uid, rolSlug: rol.slug, expiraEn: creado.expiraEn });
+      pintar();
+    } catch { alert('Error al asignar rol'); }
   }
 
   async function actualizar(id: string, datos: any) {

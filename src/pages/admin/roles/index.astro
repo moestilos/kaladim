@@ -110,6 +110,31 @@ const puedeGestionar = rolUsuarioActual === 'admin';
           </div>
         </div>
 
+        <!-- ═ Acceso temporal ═ -->
+        <div class="rounded-lg border border-amber-500/20 bg-amber-500/[0.03] p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <svg class="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></svg>
+                <span class="text-sm font-medium text-white">Acceso temporal</span>
+              </div>
+              <p class="text-xs text-carbon-400 mt-1">
+                Útil para invitar clientes a probar la app por tiempo limitado.
+                Al asignar a un usuario se pide duración y el rol expira automáticamente.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="editor-temporal" class="sr-only peer" />
+              <div class="w-11 h-6 bg-carbon-700 rounded-full peer-checked:bg-amber-500 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-5"></div>
+            </label>
+          </div>
+          <div id="editor-duracion-box" class="mt-3 pl-6 border-l-2 border-amber-500/30 hidden">
+            <label class="etiqueta text-xs">Duración por defecto (días)</label>
+            <input id="editor-duracion" type="number" min="1" max="365" class="input py-1.5 text-sm sm:max-w-[140px]" />
+            <p class="text-[10px] text-carbon-500 mt-1">Se puede sobreescribir al asignar el rol a cada usuario.</p>
+          </div>
+        </div>
+
         <!-- Matriz permisos -->
         <div>
           <div class="flex items-center justify-between mb-3">
@@ -149,6 +174,7 @@ const puedeGestionar = rolUsuarioActual === 'admin';
   type Rol = {
     id: string; slug: string; nombre: string; descripcion: string | null;
     color: string; permisos: string; esSistema: boolean; orden: number;
+    temporal?: boolean; duracionDiasPorDefecto?: number;
   };
 
   const datos = JSON.parse(document.getElementById('datos-iniciales')!.textContent!);
@@ -194,9 +220,10 @@ const puedeGestionar = rolUsuarioActual === 'admin';
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1.5">
               <span class="text-sm font-medium ${activo ? 'text-white' : 'text-carbon-200'} truncate">${escHtml(r.nombre)}</span>
-              ${r.esSistema ? '<span class="text-[9px] font-mono text-amber-300/80">●</span>' : ''}
+              ${r.esSistema ? '<span class="text-[9px] font-mono text-amber-300/80" title="rol sistema">●</span>' : ''}
+              ${r.temporal ? `<span class="text-[9px] text-amber-400" title="acceso temporal (${r.duracionDiasPorDefecto ?? 7}d)">⏱</span>` : ''}
             </div>
-            <div class="text-[10px] font-mono text-carbon-500 truncate">${escHtml(r.slug)} · ${nPerms} permisos</div>
+            <div class="text-[10px] font-mono text-carbon-500 truncate">${escHtml(r.slug)} · ${nPerms} permisos${r.temporal ? ' · temp' : ''}</div>
           </div>
         </button>
       `;
@@ -310,7 +337,23 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     (document.getElementById('editor-wildcard') as HTMLInputElement).checked = wildcard;
     (document.getElementById('editor-wildcard') as HTMLInputElement).disabled = !puedeGestionar;
     renderMatriz(wildcard ? [] : perms, wildcard);
+
+    // Temporal
+    const chkTemp = document.getElementById('editor-temporal') as HTMLInputElement;
+    const boxDur = document.getElementById('editor-duracion-box') as HTMLDivElement;
+    const inpDur = document.getElementById('editor-duracion') as HTMLInputElement;
+    chkTemp.checked = r.temporal === true;
+    chkTemp.disabled = !puedeGestionar;
+    inpDur.value = String(r.duracionDiasPorDefecto ?? 7);
+    inpDur.disabled = !puedeGestionar;
+    boxDur.classList.toggle('hidden', !chkTemp.checked);
   }
+
+  // Toggle box duración cuando cambia el checkbox temporal
+  document.getElementById('editor-temporal')!.addEventListener('change', (e) => {
+    const check = (e.target as HTMLInputElement).checked;
+    document.getElementById('editor-duracion-box')!.classList.toggle('hidden', !check);
+  });
 
   (document.getElementById('editor-wildcard') as HTMLInputElement).addEventListener('change', actualizarPermisoDesdeUI);
   (document.getElementById('editor-color') as HTMLSelectElement).addEventListener('change', () => {
@@ -338,6 +381,8 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     const descripcion = (document.getElementById('editor-desc') as HTMLInputElement).value.trim();
     const color = (document.getElementById('editor-color') as HTMLSelectElement).value;
     const permisos = obtenerPermisosActuales();
+    const temporal = (document.getElementById('editor-temporal') as HTMLInputElement).checked;
+    const duracionDiasPorDefecto = Math.max(1, Number((document.getElementById('editor-duracion') as HTMLInputElement).value) || 7);
 
     if (!nombre || !slug) {
       estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
@@ -352,22 +397,23 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     }
 
     try {
+      const payload = { slug, nombre, descripcion: descripcion || null, color, permisos, temporal, duracionDiasPorDefecto };
       if (!rolSeleccionadoId) {
-        // Crear
         const res = await fetch('/api/roles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, nombre, descripcion: descripcion || null, color, permisos }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Error'); }
         const creado = await res.json();
         roles.push(creado);
         rolSeleccionadoId = creado.id;
       } else {
+        const { slug: _, ...sinSlug } = payload; // no cambiamos slug al editar
         const res = await fetch(`/api/roles/${rolSeleccionadoId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nombre, descripcion: descripcion || null, color, permisos }),
+          body: JSON.stringify(sinSlug),
         });
         if (!res.ok) throw new Error();
         const act = await res.json();

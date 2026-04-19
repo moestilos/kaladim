@@ -18,6 +18,8 @@ const esquemaRol = z.object({
     typeof v === 'string' ? v : JSON.stringify(v),
   ).default('[]'),
   orden: z.coerce.number().int().default(10),
+  temporal: z.coerce.boolean().default(false),
+  duracionDiasPorDefecto: z.coerce.number().int().positive().default(7),
 });
 
 export const GET: APIRoute = async ({ request }) => {
