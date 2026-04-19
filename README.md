@@ -119,57 +119,43 @@ tailwind.config.mjs             # Paleta acento via var(--acento-*)
 
 ---
 
-## 🚀 Empezar en local (5 min)
+## 🚀 Arranque rápido
 
-### 1. Requisitos
-- Node 20+
-- Cuenta Neon (gratis, [neon.tech](https://neon.tech))
-- Cuenta Google Cloud (solo si quieres OAuth real, opcional para dev)
-
-### 2. Clonar e instalar
+### TL;DR (2 comandos)
 
 ```bash
-git clone https://github.com/moestilos/kaladim.git
-cd kaladim
-npm install
+git clone https://github.com/moestilos/kaladim.git && cd kaladim
+npm install && npm run dev
 ```
 
-### 3. Variables de entorno
+**Eso funciona del tirón.** `npm install` corre `postinstall` que auto-genera
+`.env` con `AUTH_SECRET` aleatorio y `DEV_ADMIN_BYPASS=true`.
+Abre `http://localhost:4321` → landing OK. `http://localhost:4321/admin` →
+panel accesible sin login (modo dev) con datos ejemplo.
 
-```bash
-cp .env.example .env
-```
+> Requisito: **Node 20+** (ver `.nvmrc`).
 
-Edita `.env`. Mínimo para dev sin auth:
+### Pasos para persistencia real (DB)
 
-```env
-AUTH_SECRET=cambiar-cualquier-string-largo-aleatorio
-DEV_ADMIN_BYPASS=true
-```
+El arranque rápido es **modo demo**: sin DB, los formularios no guardan.
+Para datos reales necesitas Neon (5 min):
 
-Con eso entras al admin sin login: `http://localhost:4321/admin`.
+1. [neon.tech](https://neon.tech) → Sign up (gratis) → New Project → "kaladim"
+2. Copia la connection string
+3. Añádela a `.env`:
+   ```env
+   DATABASE_URL=postgres://user:pass@xxx.neon.tech/neondb?sslmode=require
+   ```
+4. Aplica schema:
+   ```bash
+   npm run db:push
+   ```
+5. Reinicia: `npm run dev`
 
-### 4. (Opcional) Conectar DB
+### Pasos para auth Google real
 
-Para persistencia real:
-
-```env
-DATABASE_URL=postgres://user:pass@xxx.neon.tech/neondb?sslmode=require
-```
-
-Aplicar schema:
-
-```bash
-npm run db:push    # crea todas las tablas en Neon
-```
-
-### 5. Arrancar
-
-```bash
-npm run dev
-```
-
-→ `http://localhost:4321`
+Solo necesario en producción (o si quieres probarlo en local). Ver
+sección **🔐 Auth Google** abajo.
 
 ---
 
