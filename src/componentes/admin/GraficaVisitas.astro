@@ -1,6 +1,7 @@
 ---
-// Gráfica de visitas diarias — carga desde /api/estadisticas/visitas
-// Barras SVG por día + tooltip hover + selector de rango.
+// Gráfica visitas — donut de distribución por página + mini-sparkline tendencia.
+// Responsive: donut arriba, stats debajo en móvil · side-by-side en desktop.
+
 import { obtenerResumenVisitas, type ResumenVisitas } from '../../lib/utilidades/analiticas';
 
 let resumen: ResumenVisitas | null = null;
@@ -11,17 +12,12 @@ try {
     resumen = await obtenerResumenVisitas(30);
   } else {
     errorMsg = 'Sin DATABASE_URL — mostrando datos de ejemplo';
-    // Datos demo
     const hoy = new Date();
     const serie = Array.from({ length: 30 }, (_, i) => {
       const d = new Date(hoy);
       d.setDate(d.getDate() - (29 - i));
       const base = 20 + i * 2 + Math.round(Math.random() * 30);
-      return {
-        dia: d.toISOString().slice(0, 10),
-        visitas: base,
-        unicos: Math.round(base * 0.72),
-      };
+      return { dia: d.toISOString().slice(0, 10), visitas: base, unicos: Math.round(base * 0.72) };
     });
     resumen = {
       serie,
@@ -33,6 +29,7 @@ try {
         { ruta: '/#apps', visitas: 187 },
         { ruta: '/#servicios', visitas: 134 },
         { ruta: '/#contacto', visitas: 98 },
+        { ruta: '/#automatizaciones', visitas: 56 },
       ],
       topReferrers: [
         { referrer: 'Directo', visitas: 520 },
@@ -44,22 +41,20 @@ try {
   }
 } catch (e) {
   errorMsg = e instanceof Error ? e.message : 'Error';
-  resumen = null;
 }
 
-const maxVal = Math.max(1, ...(resumen?.serie.map((s) => s.visitas) ?? [1]));
 const formatoNum = new Intl.NumberFormat('es-ES');
 const positivo = (resumen?.vsAnterior ?? 0) >= 0;
 ---
 
 <section class="tarjeta p-4 sm:p-6">
   <!-- Header -->
-  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-    <div>
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+    <div class="min-w-0">
       <h2 class="text-lg font-display font-semibold text-white">Visitas</h2>
-      <p class="text-xs text-carbon-400 mt-0.5">Tráfico diario · 1 visita por persona cada 30 min (evita contar refrescos)</p>
+      <p class="text-xs text-carbon-400 mt-0.5">Distribución por página · 1 visita/persona cada 30 min</p>
     </div>
-    <div class="flex items-center gap-1.5 p-1 rounded-lg bg-carbon-900 border border-carbon-800">
+    <div class="flex items-center gap-1.5 p-1 rounded-lg bg-carbon-900 border border-carbon-800 shrink-0 self-start">
       <button data-rango="7"  class="btn-rango px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white transition">7d</button>
       <button data-rango="30" class="btn-rango activo px-2.5 py-1 text-xs rounded bg-carbon-800 text-white">30d</button>
       <button data-rango="90" class="btn-rango px-2.5 py-1 text-xs rounded text-carbon-400 hover:text-white transition">90d</button>
@@ -73,125 +68,84 @@ const positivo = (resumen?.vsAnterior ?? 0) >= 0;
   )}
 
   {resumen && (
-    <>
-      <!-- Métricas top -->
-      <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
-        <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
-          <div class="text-[10px] uppercase tracking-wider text-carbon-500">Total visitas</div>
-          <div class="mt-1 flex items-baseline gap-2">
-            <span id="metrica-total" class="text-2xl font-display font-bold text-white tracking-tight">{formatoNum.format(resumen.total)}</span>
-            <span id="metrica-delta" class={`text-xs font-mono ${positivo ? 'text-emerald-400' : 'text-red-400'}`}>
+    <div class="grid lg:grid-cols-[minmax(0,280px)_1fr] gap-6 items-center">
+      <!-- ═══ Donut central ═══ -->
+      <div class="relative flex justify-center">
+        <div class="relative w-full max-w-[280px] aspect-square">
+          <svg id="donut-grafica" viewBox="0 0 200 200" class="w-full h-full -rotate-90">
+            <!-- Círculo base fondo -->
+            <circle cx="100" cy="100" r="72" fill="none" stroke="rgb(var(--acento-900) / 0.15)" stroke-width="28"/>
+            <!-- Segmentos inyectados por JS/SSR -->
+            <g id="donut-segmentos"></g>
+          </svg>
+
+          <!-- Texto centro -->
+          <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div class="text-[10px] uppercase tracking-wider text-carbon-500">Total</div>
+            <div id="metrica-total" class="text-3xl sm:text-4xl font-display font-bold text-white tracking-tight leading-none">{formatoNum.format(resumen.total)}</div>
+            <div id="metrica-delta" class={`mt-1 text-xs font-mono ${positivo ? 'text-emerald-400' : 'text-red-400'}`}>
               {positivo ? '↑' : '↓'} {Math.abs(resumen.vsAnterior).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Stats + leyenda ═══ -->
+      <div class="space-y-4">
+        <!-- Mini métricas fila -->
+        <div class="grid grid-cols-2 gap-2 sm:gap-3">
+          <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
+            <div class="text-[10px] uppercase tracking-wider text-carbon-500">Únicos</div>
+            <div class="mt-1 text-xl sm:text-2xl font-display font-bold text-violeta-300 tracking-tight" id="metrica-unicos">{formatoNum.format(resumen.unicos)}</div>
+          </div>
+          <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
+            <div class="text-[10px] uppercase tracking-wider text-carbon-500">Media diaria</div>
+            <div class="mt-1 text-xl sm:text-2xl font-display font-bold text-white tracking-tight" id="metrica-media">{formatoNum.format(Math.round(resumen.total / Math.max(1, resumen.serie.length)))}</div>
+          </div>
+        </div>
+
+        <!-- Leyenda donut = top páginas -->
+        <div>
+          <h3 class="text-xs uppercase tracking-wider text-carbon-500 mb-2">Páginas más visitadas</h3>
+          <div id="leyenda-donut" class="space-y-1.5"></div>
+        </div>
+
+        <!-- Mini sparkline tendencia -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="text-xs uppercase tracking-wider text-carbon-500">Tendencia</h3>
+            <span class="text-[10px] font-mono text-carbon-500" id="rango-fechas">
+              {resumen.serie[0].dia} → {resumen.serie[resumen.serie.length - 1].dia}
             </span>
           </div>
-        </div>
-        <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
-          <div class="text-[10px] uppercase tracking-wider text-carbon-500">Visitantes únicos</div>
-          <div class="mt-1 text-2xl font-display font-bold text-violeta-300 tracking-tight" id="metrica-unicos">{formatoNum.format(resumen.unicos)}</div>
-        </div>
-        <div class="rounded-lg border border-carbon-800 bg-carbon-950/50 p-3">
-          <div class="text-[10px] uppercase tracking-wider text-carbon-500">Media diaria</div>
-          <div class="mt-1 text-2xl font-display font-bold text-white tracking-tight" id="metrica-media">{formatoNum.format(Math.round(resumen.total / Math.max(1, resumen.serie.length)))}</div>
-        </div>
-      </div>
-
-      <!-- Gráfica SVG barras -->
-      <div class="relative">
-        <svg id="svg-grafica" viewBox={`0 0 ${resumen.serie.length * 12} 200`} preserveAspectRatio="none" class="w-full h-48">
-          <!-- Línea guía media -->
-          <line x1="0" y1="140" x2={resumen.serie.length * 12} y2="140" stroke="rgb(var(--acento-600) / 0.2)" stroke-width="0.5" stroke-dasharray="3,3"/>
-
-          {resumen.serie.map((s, i) => {
-            const altura = (s.visitas / maxVal) * 160;
-            const x = i * 12 + 1;
-            const y = 200 - altura;
-            return (
-              <g class="barra-grupo cursor-pointer" data-dia={s.dia} data-visitas={s.visitas} data-unicos={s.unicos}>
-                <!-- Hit area invisible -->
-                <rect x={x} y="0" width="10" height="200" fill="transparent"/>
-                <!-- Barra visitas -->
-                <rect
-                  class="barra-visitas transition-all"
-                  x={x}
-                  y={y}
-                  width="10"
-                  height={altura}
-                  rx="2"
-                  fill="rgb(var(--acento-500) / 0.85)"
-                />
-                <!-- Barra únicos superpuesta -->
-                <rect
-                  class="barra-unicos transition-all"
-                  x={x + 2}
-                  y={200 - (s.unicos / maxVal) * 160}
-                  width="6"
-                  height={(s.unicos / maxVal) * 160}
-                  rx="1.5"
-                  fill="rgb(var(--acento-300))"
-                  opacity="0.9"
-                />
-              </g>
-            );
-          })}
-        </svg>
-
-        <!-- Tooltip flotante -->
-        <div id="tooltip-grafica" class="hidden absolute pointer-events-none z-10 px-3 py-2 rounded-lg border border-carbon-700 bg-carbon-950/95 backdrop-blur shadow-xl text-xs font-mono">
-          <div class="text-carbon-400" id="tt-fecha"></div>
-          <div class="text-white mt-1"><span id="tt-visitas"></span> visitas</div>
-          <div class="text-violeta-300"><span id="tt-unicos"></span> únicos</div>
+          <svg id="mini-spark" viewBox="0 0 300 40" preserveAspectRatio="none" class="w-full h-10">
+            <defs>
+              <linearGradient id="grad-spark" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgb(var(--acento-400))" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="rgb(var(--acento-400))" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path id="spark-area" fill="url(#grad-spark)"/>
+            <path id="spark-linea" fill="none" stroke="rgb(var(--acento-400))" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
       </div>
+    </div>
+  )}
 
-      <!-- Leyenda -->
-      <div class="flex items-center justify-between mt-4 pt-4 border-t border-carbon-800">
-        <div class="flex items-center gap-4 text-xs">
-          <div class="flex items-center gap-1.5">
-            <span class="h-2.5 w-2.5 rounded-sm bg-violeta-500"></span>
-            <span class="text-carbon-400">Visitas</span>
+  {resumen && (
+    <!-- Top referrers (debajo, full width) -->
+    <div class="mt-6 pt-4 border-t border-carbon-800">
+      <h3 class="text-xs uppercase tracking-wider text-carbon-500 mb-3">Principales referrers</h3>
+      <div id="top-referrers" class="grid sm:grid-cols-2 gap-2">
+        {resumen.topReferrers.map((r) => (
+          <div class="flex items-center justify-between text-sm gap-2 px-3 py-2 rounded-lg bg-carbon-950/40 border border-carbon-800">
+            <span class="text-carbon-300 text-xs truncate">{r.referrer}</span>
+            <span class="text-white font-medium tabular-nums shrink-0">{formatoNum.format(r.visitas)}</span>
           </div>
-          <div class="flex items-center gap-1.5">
-            <span class="h-2.5 w-2.5 rounded-sm bg-violeta-300"></span>
-            <span class="text-carbon-400">Únicos</span>
-          </div>
-        </div>
-        <div class="text-xs text-carbon-500 font-mono" id="rango-fechas">
-          {resumen.serie[0].dia} → {resumen.serie[resumen.serie.length - 1].dia}
-        </div>
+        ))}
       </div>
-
-      <!-- Top páginas + referrers -->
-      <div class="grid sm:grid-cols-2 gap-4 mt-6">
-        <div>
-          <h3 class="text-xs uppercase tracking-wider text-carbon-500 mb-3">Páginas más vistas</h3>
-          <div id="top-rutas" class="space-y-2">
-            {resumen.topRutas.map((r) => (
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-carbon-300 font-mono text-xs truncate">{r.ruta}</span>
-                <span class="text-white font-medium tabular-nums">{formatoNum.format(r.visitas)}</span>
-              </div>
-            ))}
-            {resumen.topRutas.length === 0 && (
-              <div class="text-sm text-carbon-500">Sin datos aún</div>
-            )}
-          </div>
-        </div>
-        <div>
-          <h3 class="text-xs uppercase tracking-wider text-carbon-500 mb-3">Principales referrers</h3>
-          <div id="top-referrers" class="space-y-2">
-            {resumen.topReferrers.map((r) => (
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-carbon-300 text-xs truncate max-w-[75%]">{r.referrer}</span>
-                <span class="text-white font-medium tabular-nums">{formatoNum.format(r.visitas)}</span>
-              </div>
-            ))}
-            {resumen.topReferrers.length === 0 && (
-              <div class="text-sm text-carbon-500">Sin datos aún</div>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
+    </div>
   )}
 </section>
 
@@ -199,116 +153,173 @@ const positivo = (resumen?.vsAnterior ?? 0) >= 0;
   const fmt = new Intl.NumberFormat('es-ES');
   const fmtFecha = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const svg = document.getElementById('svg-grafica');
-  const tooltip = document.getElementById('tooltip-grafica');
-  const ttFecha = document.getElementById('tt-fecha');
-  const ttVisitas = document.getElementById('tt-visitas');
-  const ttUnicos = document.getElementById('tt-unicos');
+  // Paleta de colores para segmentos (ciclada)
+  const COLORES_SEG = [
+    'rgb(var(--acento-500))',
+    'rgb(var(--acento-300))',
+    'rgb(var(--acento-700))',
+    'rgb(var(--acento-400))',
+    'rgb(var(--acento-600))',
+    'rgb(var(--acento-200))',
+    'rgb(var(--acento-800))',
+    'rgb(var(--acento-100))',
+  ];
 
-  // Tooltip hover en barras
-  function vincularHover() {
-    svg?.querySelectorAll<SVGGElement>('.barra-grupo').forEach((g) => {
-      g.addEventListener('mouseenter', () => {
-        const dia = g.dataset.dia!;
-        const v = g.dataset.visitas!;
-        const u = g.dataset.unicos!;
-        ttFecha!.textContent = fmtFecha.format(new Date(dia));
-        ttVisitas!.textContent = fmt.format(Number(v));
-        ttUnicos!.textContent = fmt.format(Number(u));
-        tooltip!.classList.remove('hidden');
+  // Genera path SVG de arco donut (cx=100, cy=100, r=72, stroke-width=28)
+  function arcoPath(inicioAng: number, finAng: number): string {
+    const r = 72;
+    const x1 = 100 + r * Math.cos(inicioAng);
+    const y1 = 100 + r * Math.sin(inicioAng);
+    const x2 = 100 + r * Math.cos(finAng);
+    const y2 = 100 + r * Math.sin(finAng);
+    const largeArc = (finAng - inicioAng) > Math.PI ? 1 : 0;
+    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+  }
 
-        // Posicionar relativo al grupo
-        const rect = g.getBoundingClientRect();
-        const padre = svg!.parentElement!.getBoundingClientRect();
-        tooltip!.style.left = (rect.left - padre.left + rect.width / 2) + 'px';
-        tooltip!.style.top  = (rect.top  - padre.top - 60) + 'px';
-        tooltip!.style.transform = 'translateX(-50%)';
+  function renderDonut(topRutas: { ruta: string; visitas: number }[]) {
+    const cont = document.getElementById('donut-segmentos')!;
+    const leyenda = document.getElementById('leyenda-donut')!;
+    const total = topRutas.reduce((a, b) => a + b.visitas, 0);
 
-        // Resaltar barra
-        g.querySelector<SVGRectElement>('.barra-visitas')?.setAttribute('fill', 'rgb(var(--acento-400))');
+    if (total === 0) {
+      cont.innerHTML = '';
+      leyenda.innerHTML = '<div class="text-sm text-carbon-500">Sin datos</div>';
+      return;
+    }
+
+    // Ordena desc, toma top 6 + agrupa "otros"
+    const sorted = [...topRutas].sort((a, b) => b.visitas - a.visitas);
+    const top = sorted.slice(0, 6);
+    const otros = sorted.slice(6).reduce((a, b) => a + b.visitas, 0);
+    const items = otros > 0 ? [...top, { ruta: 'Otros', visitas: otros }] : top;
+
+    const gap = 0.02; // separación angular entre segmentos (rad)
+    let angulo = -Math.PI / 2; // arranca arriba
+
+    cont.innerHTML = items.map((item, i) => {
+      const porcion = item.visitas / total;
+      const arcoTam = porcion * (Math.PI * 2) - gap;
+      const inicio = angulo;
+      const fin = angulo + arcoTam;
+      angulo = fin + gap;
+      const color = COLORES_SEG[i % COLORES_SEG.length];
+      return `
+        <path
+          d="${arcoPath(inicio, fin)}"
+          fill="none"
+          stroke="${color}"
+          stroke-width="28"
+          stroke-linecap="round"
+          data-i="${i}"
+          class="seg-donut transition-[stroke-width] duration-200 cursor-pointer hover:opacity-90"
+        />`;
+    }).join('');
+
+    // Leyenda
+    leyenda.innerHTML = items.map((item, i) => {
+      const porcion = ((item.visitas / total) * 100).toFixed(1);
+      const color = COLORES_SEG[i % COLORES_SEG.length];
+      return `
+        <div class="flex items-center gap-2 text-sm" data-leyenda-i="${i}">
+          <span class="h-2.5 w-2.5 rounded-full shrink-0" style="background:${color}"></span>
+          <span class="text-carbon-300 font-mono text-xs truncate flex-1">${item.ruta}</span>
+          <span class="text-white font-medium tabular-nums">${fmt.format(item.visitas)}</span>
+          <span class="text-carbon-500 text-xs font-mono tabular-nums w-12 text-right">${porcion}%</span>
+        </div>
+      `;
+    }).join('');
+
+    // Hover sobre leyenda → engrosa segmento correspondiente
+    leyenda.querySelectorAll<HTMLDivElement>('[data-leyenda-i]').forEach((el) => {
+      const idx = el.dataset.leyendaI;
+      el.addEventListener('mouseenter', () => {
+        document.querySelector<SVGPathElement>(`.seg-donut[data-i="${idx}"]`)?.setAttribute('stroke-width', '34');
       });
-      g.addEventListener('mouseleave', () => {
-        tooltip!.classList.add('hidden');
-        g.querySelector<SVGRectElement>('.barra-visitas')?.setAttribute('fill', 'rgb(var(--acento-500) / 0.85)');
+      el.addEventListener('mouseleave', () => {
+        document.querySelector<SVGPathElement>(`.seg-donut[data-i="${idx}"]`)?.setAttribute('stroke-width', '28');
       });
     });
+    // Hover directo sobre segmento resalta en leyenda
+    document.querySelectorAll<SVGPathElement>('.seg-donut').forEach((s) => {
+      s.addEventListener('mouseenter', () => s.setAttribute('stroke-width', '34'));
+      s.addEventListener('mouseleave', () => s.setAttribute('stroke-width', '28'));
+    });
   }
-  vincularHover();
 
-  // Cambio de rango
-  const botonesRango = document.querySelectorAll<HTMLButtonElement>('.btn-rango');
-  botonesRango.forEach((btn) => {
+  function renderSparkline(serie: { dia: string; visitas: number }[]) {
+    if (serie.length < 2) return;
+    const max = Math.max(1, ...serie.map((s) => s.visitas));
+    const paso = 300 / (serie.length - 1);
+    const pts = serie.map((s, i) => {
+      const x = i * paso;
+      const y = 40 - (s.visitas / max) * 32 - 4;
+      return { x, y };
+    });
+    const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const dArea = d + ` L 300 40 L 0 40 Z`;
+    document.getElementById('spark-linea')!.setAttribute('d', d);
+    document.getElementById('spark-area')!.setAttribute('d', dArea);
+  }
+
+  // Datos iniciales (SSR los tiene, pero los re-renderizamos para usar colores acento actuales)
+  const rutasInit = [
+    ...document.querySelectorAll('[data-ruta-init]')
+  ]; // fallback vacío, usaremos fetch inicial
+
+  async function cargar(dias: number) {
+    try {
+      const res = await fetch(`/api/estadisticas/visitas?dias=${dias}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      repintar(data);
+    } catch {}
+  }
+
+  function repintar(data: any) {
+    const positivo = (data.vsAnterior ?? 0) >= 0;
+    document.getElementById('metrica-total')!.textContent = fmt.format(data.total);
+    const delta = document.getElementById('metrica-delta')!;
+    delta.textContent = `${positivo ? '↑' : '↓'} ${Math.abs(data.vsAnterior).toFixed(1)}%`;
+    delta.className = `mt-1 text-xs font-mono ${positivo ? 'text-emerald-400' : 'text-red-400'}`;
+    document.getElementById('metrica-unicos')!.textContent = fmt.format(data.unicos);
+    document.getElementById('metrica-media')!.textContent = fmt.format(Math.round(data.total / Math.max(1, data.serie.length)));
+
+    if (data.serie.length) {
+      document.getElementById('rango-fechas')!.textContent = `${data.serie[0].dia} → ${data.serie[data.serie.length - 1].dia}`;
+    }
+
+    renderDonut(data.topRutas ?? []);
+    renderSparkline(data.serie ?? []);
+
+    // Top referrers
+    const cont = document.getElementById('top-referrers');
+    if (cont) {
+      cont.innerHTML = (data.topReferrers ?? []).map((r: any) => `
+        <div class="flex items-center justify-between text-sm gap-2 px-3 py-2 rounded-lg bg-carbon-950/40 border border-carbon-800">
+          <span class="text-carbon-300 text-xs truncate">${r.referrer}</span>
+          <span class="text-white font-medium tabular-nums shrink-0">${fmt.format(r.visitas)}</span>
+        </div>`).join('');
+      if (!data.topReferrers?.length) cont.innerHTML = '<div class="text-sm text-carbon-500 col-span-full">Sin datos</div>';
+    }
+  }
+
+  // Cambio rango
+  document.querySelectorAll<HTMLButtonElement>('.btn-rango').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      botonesRango.forEach((b) => {
+      document.querySelectorAll('.btn-rango').forEach((b) => {
         b.classList.remove('activo', 'bg-carbon-800', 'text-white');
         b.classList.add('text-carbon-400');
       });
       btn.classList.add('activo', 'bg-carbon-800', 'text-white');
       btn.classList.remove('text-carbon-400');
-
       const dias = btn.dataset.rango;
-      try {
-        const res = await fetch(`/api/estadisticas/visitas?dias=${dias}`);
-        if (!res.ok) throw new Error('Error API');
-        const data = await res.json();
-        repintar(data);
-      } catch (e) {
-        console.error('[grafica]', e);
-      }
+      await cargar(Number(dias));
     });
   });
 
-  function repintar(data: any) {
-    const maxV = Math.max(1, ...data.serie.map((s: any) => s.visitas));
-    const ancho = data.serie.length * 12;
-    svg!.setAttribute('viewBox', `0 0 ${ancho} 200`);
+  // Carga inicial 30d (ya tenemos SSR stats pero repintamos para donut + sparkline)
+  cargar(30);
 
-    // Reemplazar contenido barras
-    const linea = `<line x1="0" y1="140" x2="${ancho}" y2="140" stroke="rgb(var(--acento-600) / 0.2)" stroke-width="0.5" stroke-dasharray="3,3"/>`;
-    const barras = data.serie.map((s: any, i: number) => {
-      const altura = (s.visitas / maxV) * 160;
-      const x = i * 12 + 1;
-      const y = 200 - altura;
-      const hu = (s.unicos / maxV) * 160;
-      return `
-        <g class="barra-grupo cursor-pointer" data-dia="${s.dia}" data-visitas="${s.visitas}" data-unicos="${s.unicos}">
-          <rect x="${x}" y="0" width="10" height="200" fill="transparent"/>
-          <rect class="barra-visitas transition-all" x="${x}" y="${y}" width="10" height="${altura}" rx="2" fill="rgb(var(--acento-500) / 0.85)"/>
-          <rect class="barra-unicos transition-all" x="${x + 2}" y="${200 - hu}" width="6" height="${hu}" rx="1.5" fill="rgb(var(--acento-300))" opacity="0.9"/>
-        </g>`;
-    }).join('');
-    svg!.innerHTML = linea + barras;
-    vincularHover();
-
-    // Métricas
-    const positivo = (data.vsAnterior ?? 0) >= 0;
-    document.getElementById('metrica-total')!.textContent = fmt.format(data.total);
-    const delta = document.getElementById('metrica-delta')!;
-    delta.textContent = `${positivo ? '↑' : '↓'} ${Math.abs(data.vsAnterior).toFixed(1)}%`;
-    delta.className = `text-xs font-mono ${positivo ? 'text-emerald-400' : 'text-red-400'}`;
-    document.getElementById('metrica-unicos')!.textContent = fmt.format(data.unicos);
-    document.getElementById('metrica-media')!.textContent = fmt.format(Math.round(data.total / Math.max(1, data.serie.length)));
-
-    // Rango
-    if (data.serie.length) {
-      document.getElementById('rango-fechas')!.textContent = `${data.serie[0].dia} → ${data.serie[data.serie.length - 1].dia}`;
-    }
-
-    // Top rutas / referrers
-    document.getElementById('top-rutas')!.innerHTML = data.topRutas.length === 0
-      ? '<div class="text-sm text-carbon-500">Sin datos</div>'
-      : data.topRutas.map((r: any) => `
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-carbon-300 font-mono text-xs truncate">${r.ruta}</span>
-            <span class="text-white font-medium tabular-nums">${fmt.format(r.visitas)}</span>
-          </div>`).join('');
-
-    document.getElementById('top-referrers')!.innerHTML = data.topReferrers.length === 0
-      ? '<div class="text-sm text-carbon-500">Sin datos</div>'
-      : data.topReferrers.map((r: any) => `
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-carbon-300 text-xs truncate max-w-[75%]">${r.referrer}</span>
-            <span class="text-white font-medium tabular-nums">${fmt.format(r.visitas)}</span>
-          </div>`).join('');
-  }
+  // Re-render cuando cambia tema (colores CSS vars cambian)
+  window.addEventListener('tema-cambiado', () => cargar(Number(document.querySelector<HTMLButtonElement>('.btn-rango.activo')?.dataset.rango ?? 30)));
 </script>
