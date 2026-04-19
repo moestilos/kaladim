@@ -7,13 +7,21 @@ import { sql } from 'drizzle-orm';
 
 export const prerender = false;
 
-// Métricas — tolerante a falta de DB para poder ver el panel sin Neon en dev.
+// Métricas + tendencias calculadas sobre datos reales.
+type Tendencia = { texto: string; positiva: boolean } | null;
+
 let metricas = {
   clientes: 0,
   proyectosActivos: 0,
   automatizacionesActivas: 0,
   ingresos: 0,
   leadsNuevos: 0,
+};
+let tend = {
+  clientes: null as Tendencia,
+  proyectosActivos: null as Tendencia,
+  automatizaciones: null as Tendencia,
+  ingresos: null as Tendencia,
 };
 let errorDb: string | null = null;
 
@@ -43,9 +51,68 @@ try {
       ingresos: Number(ing?.total ?? 0),
       leadsNuevos: lead?.n ?? 0,
     };
+
+    // ─── Tendencias reales ───
+
+    // 1) Clientes: nuevos este mes (creados >= primer día del mes actual)
+    const [cliMes] = await db.execute<{ n: number }>(sql`
+      SELECT COUNT(*)::int AS n FROM clientes WHERE creado_en >= date_trunc('month', NOW())
+    `).then((r: any) => r.rows ?? r);
+    const nMes = Number(cliMes?.n ?? 0);
+    if (nMes > 0) tend.clientes = { texto: `+${nMes} este mes`, positiva: true };
+
+    // 2) Proyectos: cuántos entregan este mes (fecha_entrega en mes actual)
+    const [proyMes] = await db.execute<{ n: number }>(sql`
+      SELECT COUNT(*)::int AS n FROM proyectos
+      WHERE fecha_entrega >= date_trunc('month', NOW())
+        AND fecha_entrega <  date_trunc('month', NOW()) + INTERVAL '1 month'
+        AND estado NOT IN ('completado','cancelado')
+    `).then((r: any) => r.rows ?? r);
+    const nEntregan = Number(proyMes?.n ?? 0);
+    if (nEntregan > 0) tend.proyectosActivos = { texto: `${nEntregan} entregan este mes`, positiva: true };
+
+    // 3) Automatizaciones: uptime real = exitosas / totales
+    const [autoStats] = await db.execute<{ totales: number; exitosas: number }>(sql`
+      SELECT
+        COALESCE(SUM(ejecuciones_totales), 0)::int AS totales,
+        COALESCE(SUM(ejecuciones_exitosas), 0)::int AS exitosas
+      FROM automatizaciones WHERE estado = 'activa'
+    `).then((r: any) => r.rows ?? r);
+    const totales = Number(autoStats?.totales ?? 0);
+    const exitosas = Number(autoStats?.exitosas ?? 0);
+    if (totales > 0) {
+      const uptime = (exitosas / totales) * 100;
+      tend.automatizaciones = { texto: `${uptime.toFixed(1)}% uptime`, positiva: uptime >= 95 };
+    }
+
+    // 4) Ingresos: mes actual vs anterior
+    const [ingMesActual] = await db.execute<{ total: number }>(sql`
+      SELECT COALESCE(SUM(precio), 0)::numeric AS total FROM servicios_contratados
+      WHERE creado_en >= date_trunc('month', NOW())
+    `).then((r: any) => r.rows ?? r);
+    const [ingMesAnterior] = await db.execute<{ total: number }>(sql`
+      SELECT COALESCE(SUM(precio), 0)::numeric AS total FROM servicios_contratados
+      WHERE creado_en >= date_trunc('month', NOW()) - INTERVAL '1 month'
+        AND creado_en <  date_trunc('month', NOW())
+    `).then((r: any) => r.rows ?? r);
+    const mesActual = Number(ingMesActual?.total ?? 0);
+    const mesAnterior = Number(ingMesAnterior?.total ?? 0);
+    if (mesAnterior > 0 && mesActual > 0) {
+      const delta = ((mesActual - mesAnterior) / mesAnterior) * 100;
+      const signo = delta >= 0 ? '+' : '';
+      tend.ingresos = { texto: `${signo}${delta.toFixed(1)}% vs mes pasado`, positiva: delta >= 0 };
+    } else if (mesActual > 0 && mesAnterior === 0) {
+      tend.ingresos = { texto: 'primer mes con ingresos', positiva: true };
+    }
   } else {
     errorDb = 'DATABASE_URL no configurada (mostrando valores de ejemplo)';
     metricas = { clientes: 12, proyectosActivos: 5, automatizacionesActivas: 8, ingresos: 24500, leadsNuevos: 3 };
+    tend = {
+      clientes: { texto: '+2 este mes', positiva: true },
+      proyectosActivos: { texto: '3 entregan este mes', positiva: true },
+      automatizaciones: { texto: '99.2% uptime', positiva: true },
+      ingresos: { texto: '+12% vs mes pasado', positiva: true },
+    };
   }
 } catch (e) {
   errorDb = e instanceof Error ? e.message : 'Error desconocido';
@@ -62,10 +129,14 @@ const formatoEUR = new Intl.NumberFormat('es-ES', { style: 'currency', currency:
   )}
 
   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <TarjetaMetrica etiqueta="Clientes" valor={metricas.clientes} icono="clientes" tendencia="+2 este mes" />
-    <TarjetaMetrica etiqueta="Proyectos activos" valor={metricas.proyectosActivos} icono="proyectos" tendencia="3 entregan este mes" />
-    <TarjetaMetrica etiqueta="Automatizaciones" valor={metricas.automatizacionesActivas} icono="automatizaciones" tendencia="99.2% uptime" />
-    <TarjetaMetrica etiqueta="Ingresos totales" valor={formatoEUR.format(metricas.ingresos)} icono="ingresos" tendencia="+12% vs mes pasado" />
+    <TarjetaMetrica etiqueta="Clientes" valor={metricas.clientes} icono="clientes"
+      tendencia={tend.clientes?.texto} positiva={tend.clientes?.positiva ?? true} />
+    <TarjetaMetrica etiqueta="Proyectos activos" valor={metricas.proyectosActivos} icono="proyectos"
+      tendencia={tend.proyectosActivos?.texto} positiva={tend.proyectosActivos?.positiva ?? true} />
+    <TarjetaMetrica etiqueta="Automatizaciones" valor={metricas.automatizacionesActivas} icono="automatizaciones"
+      tendencia={tend.automatizaciones?.texto} positiva={tend.automatizaciones?.positiva ?? true} />
+    <TarjetaMetrica etiqueta="Ingresos totales" valor={formatoEUR.format(metricas.ingresos)} icono="ingresos"
+      tendencia={tend.ingresos?.texto} positiva={tend.ingresos?.positiva ?? true} />
   </div>
 
   <!-- Gráfica analytics -->
