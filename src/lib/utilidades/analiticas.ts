@@ -30,7 +30,11 @@ export function esBot(userAgent: string): boolean {
   return !userAgent || REGEX_BOT.test(userAgent);
 }
 
-// Registro fire-and-forget. No bloquea la respuesta al usuario.
+// Ventana de deduplicación: misma IP + misma ruta dentro de este tiempo
+// cuenta como UNA sola visita. Evita inflar métricas con refrescos.
+const VENTANA_DEDUPE_MINUTOS = 30;
+
+// Registro fire-and-forget con deduplicación. No bloquea la respuesta.
 export function registrarVisitaAsync(params: {
   ruta: string;
   ipHash: string;
@@ -40,9 +44,20 @@ export function registrarVisitaAsync(params: {
 }): void {
   if (!import.meta.env.DATABASE_URL && !process.env.DATABASE_URL) return;
 
-  // Promesa sin await — el middleware no espera.
   (async () => {
     try {
+      const { sql } = await import('drizzle-orm');
+      // ¿Ya registramos esta IP+ruta en la ventana? → skip
+      const res = await db.execute<{ n: number }>(sql`
+        SELECT COUNT(*)::int AS n FROM visitas
+        WHERE ip_hash = ${params.ipHash}
+          AND ruta = ${params.ruta}
+          AND creado_en > NOW() - (${VENTANA_DEDUPE_MINUTOS} || ' minutes')::interval
+        LIMIT 1
+      `);
+      const yaExiste = Number((res.rows ?? res)?.[0]?.n ?? 0) > 0;
+      if (yaExiste) return; // refresh o navegación repetida → no contamos
+
       await db.insert(esquema.visitas).values({
         ruta: params.ruta.slice(0, 500),
         ipHash: params.ipHash,
@@ -51,7 +66,6 @@ export function registrarVisitaAsync(params: {
         pais: params.pais,
       });
     } catch (e) {
-      // Fallo silencioso — no queremos que analítica rompa la web
       console.error('[analytics] error registrando visita:', (e as Error).message);
     }
   })();
