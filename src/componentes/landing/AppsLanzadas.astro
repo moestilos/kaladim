@@ -111,9 +111,9 @@ try {
   if (import.meta.env.DATABASE_URL) {
     const filas = await db
       .select()
-      .from(esquema.casosEstudio)
-      .where(eq(esquema.casosEstudio.activo, true))
-      .orderBy(asc(esquema.casosEstudio.orden));
+      .from(esquema.apps)
+      .where(eq(esquema.apps.activo, true))
+      .orderBy(asc(esquema.apps.orden));
     if (filas.length > 0) {
       casos = filas.map((f) => ({
         id: f.slug,
@@ -131,7 +131,7 @@ try {
     }
   }
 } catch (e) {
-  console.error('[CasosEstudio] error cargando DB, usando demo', e);
+  console.error('[AppsLanzadas] error cargando DB, usando demo', e);
 }
 
 function safeJson<T>(s: string, fallback: T): T {
@@ -148,7 +148,7 @@ function pathSparkline(puntos: number[], ancho = 600, alto = 180): string {
 }
 ---
 
-<section id="casos" class="seccion relative">
+<section id="apps" class="seccion relative">
   <div class="contenedor">
     <!-- Encabezado -->
     <div class="flex items-end gap-6 mb-14">

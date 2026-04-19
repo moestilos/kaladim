@@ -21,7 +21,7 @@ interface Props {
   modo: 'crear' | 'editar';
 }
 const { caso, modo } = Astro.props;
-const accion = modo === 'crear' ? '/api/casos' : `/api/casos/${caso?.id}`;
+const accion = modo === 'crear' ? '/api/apps' : `/api/apps/${caso?.id}`;
 const metodo = modo === 'crear' ? 'POST' : 'PATCH';
 
 function parse<T>(s: string | undefined | null, f: T): T {
@@ -137,7 +137,7 @@ const grafica = parse<number[]>(caso?.grafica, []);
   <!-- Estado + acciones -->
   <div id="estado-formulario" class="hidden"></div>
   <div class="flex items-center justify-between pt-4 border-t border-carbon-800">
-    <a href="/admin/casos" class="btn-fantasma">← Cancelar</a>
+    <a href="/admin/apps" class="btn-fantasma">← Cancelar</a>
     <button type="submit" class="btn-primario">
       {modo === 'crear' ? 'Crear caso' : 'Guardar cambios'}
     </button>
@@ -304,7 +304,7 @@ const grafica = parse<number[]>(caso?.grafica, []);
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || 'Error al guardar');
       }
-      location.href = '/admin/casos';
+      location.href = '/admin/apps';
     } catch (err) {
       estado.className = 'rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-3 text-sm';
       estado.textContent = '✗ ' + err.message;

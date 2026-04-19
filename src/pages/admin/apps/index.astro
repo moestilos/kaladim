@@ -11,7 +11,7 @@ let filas: any[] = [];
 let error: string | null = null;
 try {
   if (import.meta.env.DATABASE_URL) {
-    filas = await db.select().from(esquema.casosEstudio).orderBy(asc(esquema.casosEstudio.orden));
+    filas = await db.select().from(esquema.apps).orderBy(asc(esquema.apps.orden));
   } else {
     error = 'Sin DATABASE_URL — ejemplo';
     filas = [
@@ -32,16 +32,16 @@ const columnas = [
 <LayoutAdmin titulo="Apps lanzadas" subtitulo="Portfolio visible en la landing">
   <EncabezadoSeccion
     titulo="Apps lanzadas"
-    descripcion={`${filas.length} apps · visibles en /#casos de la web`}
-    hrefNuevo="/admin/casos/nuevo"
+    descripcion={`${filas.length} apps · visibles en /#apps de la web`}
+    hrefNuevo="/admin/apps/nuevo"
     textoNuevo="Nueva app"
   />
   {error && <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">⚠ {error}</div>}
   <TablaDatos
     columnas={columnas}
     filas={filas}
-    rutaEditar={(f) => `/admin/casos/${f.id}`}
-    rutaEliminar="/api/casos"
+    rutaEditar={(f) => `/admin/apps/${f.id}`}
+    rutaEliminar="/api/apps"
     mensajeVacio="Sin apps todavía. Añade la primera para empezar a llenar tu portfolio."
     placeholderBusqueda="Buscar por título, slug, categoría..."
   />

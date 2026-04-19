@@ -48,7 +48,7 @@ export const esquemaAutomatizacion = z.object({
   estado: z.enum(['activa', 'pausada', 'error', 'desarrollo']).optional(),
 });
 
-export const esquemaCasoEstudio = z.object({
+export const esquemaApp = z.object({
   slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, 'Solo minúsculas, números y guiones'),
   titulo: z.string().min(2).max(120),
   anio: z.string().min(1).max(10),

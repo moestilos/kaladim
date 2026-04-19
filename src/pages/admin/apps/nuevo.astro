@@ -1,10 +1,10 @@
 ---
 import LayoutAdmin from '../../../layouts/LayoutAdmin.astro';
 import EncabezadoSeccion from '../../../componentes/admin/EncabezadoSeccion.astro';
-import FormularioCaso from '../../../componentes/admin/FormularioCaso.astro';
+import FormularioApp from '../../../componentes/admin/FormularioApp.astro';
 export const prerender = false;
 ---
 <LayoutAdmin titulo="Nueva app lanzada">
   <EncabezadoSeccion titulo="Nueva app" descripcion="Añade un proyecto al portfolio visible en la landing" />
-  <FormularioCaso modo="crear" />
+  <FormularioApp modo="crear" />
 </LayoutAdmin>

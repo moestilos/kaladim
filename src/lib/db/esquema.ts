@@ -167,8 +167,8 @@ export const automatizaciones = pgTable(
 
 // ─── CASOS DE ESTUDIO (portfolio editable) ──────────────────────────────
 
-export const casosEstudio = pgTable(
-  'casos_estudio',
+export const apps = pgTable(
+  'casos_estudio', // nombre de tabla en DB (no renombrado para evitar migración)
   {
     id: uuid('id').primaryKey().defaultRandom(),
     // Slug visible en URL (ej: "moepdf")
@@ -381,8 +381,8 @@ export type Automatizacion = typeof automatizaciones.$inferSelect;
 export type NuevaAutomatizacion = typeof automatizaciones.$inferInsert;
 export type Lead = typeof leads.$inferSelect;
 export type NuevoLead = typeof leads.$inferInsert;
-export type CasoEstudio = typeof casosEstudio.$inferSelect;
-export type NuevoCasoEstudio = typeof casosEstudio.$inferInsert;
+export type App = typeof apps.$inferSelect;
+export type NuevaApp = typeof apps.$inferInsert;
 export type ConfiguracionSitio = typeof configuracionSitio.$inferSelect;
 export type KanbanColumna = typeof kanbanColumnas.$inferSelect;
 export type NuevaKanbanColumna = typeof kanbanColumnas.$inferInsert;
