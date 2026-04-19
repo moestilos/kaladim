@@ -8,6 +8,7 @@ import { requerirAdminEstricto } from '../../../lib/utilidades/autorizacion';
 export const prerender = false;
 
 const esquemaActualizar = z.object({
+  slug: z.string().min(2).max(40).regex(/^[a-z0-9_-]+$/, 'Solo minúsculas, números, _ y -').optional(),
   nombre: z.string().min(2).max(80).optional(),
   descripcion: z.preprocess((v) => (v === '' ? null : v), z.string().max(255).nullable().optional()),
   color: z.enum(['carbon', 'violeta', 'emerald', 'amber', 'red', 'cyan', 'rosa', 'azul', 'naranja']).optional(),
@@ -27,7 +28,22 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     const datos = esquemaActualizar.parse(body);
     const [existente] = await db.select().from(esquema.roles).where(eq(esquema.roles.id, params.id!));
     if (!existente) return Response.json({ error: 'no_encontrado' }, { status: 404 });
-    // Para rol sistema: permitir editar permisos/nombre/color pero no cambiar el slug
+
+    // Si cambia slug → validar que no exista + reasignar usuarios en cascada
+    if (datos.slug && datos.slug !== existente.slug) {
+      const [duplicado] = await db.select().from(esquema.roles).where(eq(esquema.roles.slug, datos.slug));
+      if (duplicado && duplicado.id !== existente.id) {
+        return Response.json({ error: 'slug_duplicado' }, { status: 400 });
+      }
+      // Cascade: usuarios.rol + usuario_roles.rol_slug
+      await db.update(esquema.usuarios)
+        .set({ rol: datos.slug })
+        .where(eq(esquema.usuarios.rol, existente.slug));
+      await db.update(esquema.usuarioRoles)
+        .set({ rolSlug: datos.slug })
+        .where(eq(esquema.usuarioRoles.rolSlug, existente.slug));
+    }
+
     const [act] = await db.update(esquema.roles)
       .set({ ...datos, actualizadoEn: new Date() } as any)
       .where(eq(esquema.roles.id, params.id!))
@@ -35,6 +51,7 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     return Response.json(act);
   } catch (e) {
     if (e instanceof z.ZodError) return Response.json({ error: 'validacion', detalles: e.errors }, { status: 400 });
+    console.error('[PATCH role]', e);
     return Response.json({ error: 'servidor' }, { status: 500 });
   }
 };

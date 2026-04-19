@@ -87,7 +87,7 @@ const puedeGestionar = rolUsuarioActual === 'admin';
               placeholder="slug-identificador"
               pattern="[a-z0-9_-]+"
             />
-            <p class="text-[10px] text-carbon-500 mt-1">Los roles sistema tienen el slug bloqueado (referencia estable).</p>
+            <p class="text-[10px] text-carbon-500 mt-1">El slug es el identificador técnico. Cambiarlo reasigna automáticamente a todos los usuarios con este rol.</p>
           </div>
           <div class="flex gap-2 shrink-0">
             <button id="btn-borrar-rol" class="btn-fantasma text-sm text-red-400 hover:text-red-300 hidden">Eliminar</button>
@@ -314,7 +314,8 @@ const puedeGestionar = rolUsuarioActual === 'admin';
     (document.getElementById('editor-nombre') as HTMLInputElement).value = r.nombre;
     (document.getElementById('editor-nombre') as HTMLInputElement).disabled = !puedeGestionar;
     (document.getElementById('editor-slug') as HTMLInputElement).value = r.slug;
-    (document.getElementById('editor-slug') as HTMLInputElement).disabled = r.esSistema || !r.id || !puedeGestionar;
+    (document.getElementById('editor-slug') as HTMLInputElement).disabled = !puedeGestionar;
+    (document.getElementById('editor-slug') as HTMLInputElement).dataset.slugOriginal = r.slug;
     (document.getElementById('editor-desc') as HTMLInputElement).value = r.descripcion ?? '';
     (document.getElementById('editor-desc') as HTMLInputElement).disabled = !puedeGestionar;
     (document.getElementById('editor-color') as HTMLSelectElement).value = r.color;
@@ -409,13 +410,22 @@ const puedeGestionar = rolUsuarioActual === 'admin';
         roles.push(creado);
         rolSeleccionadoId = creado.id;
       } else {
-        const { slug: _, ...sinSlug } = payload; // no cambiamos slug al editar
+        // Detectar cambio de slug → advertir
+        const slugInput = document.getElementById('editor-slug') as HTMLInputElement;
+        const slugOriginal = slugInput.dataset.slugOriginal ?? '';
+        const rolActual = roles.find((r) => r.id === rolSeleccionadoId);
+        if (slug !== slugOriginal) {
+          const msg = rolActual?.esSistema
+            ? `⚠ Vas a cambiar el slug del rol SISTEMA '${slugOriginal}' → '${slug}'.\nTodos los usuarios con este rol serán reasignados automáticamente.\n\n¿Continuar?`
+            : `Vas a cambiar el slug '${slugOriginal}' → '${slug}'.\nLos usuarios con este rol serán reasignados. ¿Continuar?`;
+          if (!confirm(msg)) { return; }
+        }
         const res = await fetch(`/api/roles/${rolSeleccionadoId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sinSlug),
+          body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Error'); }
         const act = await res.json();
         roles = roles.map((r) => r.id === act.id ? act : r);
       }
