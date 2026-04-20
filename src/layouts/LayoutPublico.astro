@@ -53,7 +53,7 @@ const url = Astro.url.href;
     <FondoConstelacion />
 
     <!-- ═════════ NAVEGACIÓN (pill flotante con indicador animado) ═════════ -->
-    <header id="header-nav" class="fixed top-4 inset-x-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none transition-all duration-300">
+    <header id="header-nav" class="fixed safe-top inset-x-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none transition-all duration-300">
       <div id="pill-nav" class="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border border-carbon-700/80 bg-carbon-900/80 backdrop-blur-xl shadow-2xl shadow-black/40 max-w-full transition-all duration-300 hover:border-violeta-500/40 hover:shadow-violeta-600/20">
 
         <!-- Logo (constelación K — sigue tema vía text-violeta-*) -->
@@ -115,7 +115,7 @@ const url = Astro.url.href;
       </div>
     </header>
 
-    <div class="h-20" aria-hidden="true"></div>
+    <div class="espaciador-header" aria-hidden="true"></div>
 
     <script>
       // ── Botón menú abre paleta ──
@@ -182,13 +182,13 @@ const url = Astro.url.href;
         const y = window.scrollY;
         if (!header || !pill) return;
         if (y > 30) {
-          header.classList.add('top-2');
-          header.classList.remove('top-4');
+          header.classList.add('safe-top-sm');
+          header.classList.remove('safe-top');
           pill.classList.add('shadow-violeta-600/30', 'border-carbon-600/80');
           pill.classList.remove('border-carbon-700/80');
         } else {
-          header.classList.remove('top-2');
-          header.classList.add('top-4');
+          header.classList.remove('safe-top-sm');
+          header.classList.add('safe-top');
           pill.classList.remove('shadow-violeta-600/30', 'border-carbon-600/80');
           pill.classList.add('border-carbon-700/80');
         }
