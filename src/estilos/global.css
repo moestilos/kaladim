@@ -141,12 +141,19 @@
     @apply text-carbon-100 antialiased;
     background: #09090B;
     scroll-behavior: smooth;
+    /* Evita rebote iOS en modo PWA */
+    overscroll-behavior-y: none;
   }
 
   body {
     @apply font-sans;
     background: transparent;
     min-height: 100vh;
+    /* Padding seguro para notch/home indicator iOS cuando va standalone */
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
     font-feature-settings: 'kern', 'liga', 'calt';
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;

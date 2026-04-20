@@ -1,0 +1,86 @@
+---
+// Meta + registro Service Worker + prompt de instalación.
+// Incluir en <head> (meta tags) y footer (botón install opcional).
+---
+
+<!-- Meta PWA (head) -->
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<meta name="theme-color" content="#7C3AED" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Kaladim" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="application-name" content="Kaladim" />
+
+<script is:inline>
+  // Registrar SW (solo en producción; en dev Astro recarga mucho)
+  if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+
+  // Guardar evento beforeinstallprompt para mostrar botón custom
+  window.__instalarPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.__instalarPrompt = e;
+    document.dispatchEvent(new CustomEvent('pwa-instalable'));
+  });
+  window.addEventListener('appinstalled', () => {
+    window.__instalarPrompt = null;
+    document.dispatchEvent(new CustomEvent('pwa-instalada'));
+  });
+</script>
+
+<!-- Botón flotante instalar (solo visible si navegador lo soporta + no instalado) -->
+<button
+  id="btn-instalar-pwa"
+  class="hidden fixed bottom-4 right-4 z-50 items-center gap-2 px-4 py-2.5 rounded-full border border-violeta-500/40 bg-carbon-900/90 backdrop-blur-xl text-sm text-white shadow-xl shadow-violeta-600/20 hover:border-violeta-400/60 transition"
+  aria-label="Instalar Kaladim"
+>
+  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 3v12M7 10l5 5 5-5M5 21h14" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  Instalar app
+  <button type="button" id="btn-instalar-cerrar" class="ml-2 text-carbon-500 hover:text-white" aria-label="Cerrar">×</button>
+</button>
+
+<script>
+  const btn = document.getElementById('btn-instalar-pwa') as HTMLButtonElement | null;
+  const btnCerrar = document.getElementById('btn-instalar-cerrar') as HTMLButtonElement | null;
+
+  function mostrar() {
+    if (!btn) return;
+    // Respeta si usuario ya descartó en esta sesión
+    if (sessionStorage.getItem('pwa-dismissed') === '1') return;
+    btn.classList.remove('hidden');
+    btn.classList.add('flex');
+  }
+  function ocultar() {
+    if (!btn) return;
+    btn.classList.add('hidden');
+    btn.classList.remove('flex');
+  }
+
+  document.addEventListener('pwa-instalable', mostrar);
+  document.addEventListener('pwa-instalada', ocultar);
+
+  btn?.addEventListener('click', async (e) => {
+    // Si click viene del botón cerrar interior, no lanzar prompt
+    if ((e.target as HTMLElement).id === 'btn-instalar-cerrar') return;
+    const prompt = (window as any).__instalarPrompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    (window as any).__instalarPrompt = null;
+    ocultar();
+    if (outcome === 'dismissed') sessionStorage.setItem('pwa-dismissed', '1');
+  });
+  btnCerrar?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sessionStorage.setItem('pwa-dismissed', '1');
+    ocultar();
+  });
+</script>
